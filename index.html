@@ -70,6 +70,7 @@ select{background:var(--surface);border:1px solid var(--line);border-radius:8px;
 
   <div class="bar">
     <button class="btn" id="micBtn">🎤 Mikrofon starten</button>
+    <label class="file">🎙️ Jetzt aufnehmen (Handy)<input type="file" id="capIn" accept="audio/*" capture></label>
     <label class="file" id="fileLbl">📁 Aufnahme laden (MP3, M4A, WAV)<input type="file" id="fileIn" accept="audio/*"></label>
     <button class="btn ghost" id="saveBtn" hidden>App herunterladen</button>
   </div>
@@ -355,6 +356,7 @@ function showHum(notes) {
 }
 
 // ---- audio file analysis (works in the claude.ai viewer too)
+$('capIn').onchange = e => $('fileIn').onchange(e); // phone's own recorder, works where live mic is blocked
 $('fileIn').onchange = async e => {
   const f = e.target.files[0]; if (!f) return;
   say('Analysiere „' + f.name + '“ …');
