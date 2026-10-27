@@ -372,18 +372,54 @@ const Core = (() => {
     return { best: out[0], alt: out.slice(1, 3) };
   }
 
-  // frames: [{t, midi|null}] -> notes [{midi, start, dur}]
-  function toNotes(frames, minDur = 0.09) {
-    const m = frames.map((f, i) => { if (f.midi == null) return null; // keep gaps: they separate repeated notes
-      const w = frames.slice(Math.max(0, i - 2), i + 3).map(x => x.midi).filter(x => x != null).sort((a, b) => a - b); return w.length >= 3 ? w[w.length >> 1] : null; });
-    const notes = []; let cur = null;
-    m.forEach((midi, i) => {
-      const t = frames[i].t;
-      if (cur && midi === cur.midi) { cur.end = t; return; }
-      if (cur && cur.end - cur.start >= minDur) notes.push({ midi: cur.midi, start: cur.start, dur: cur.end - cur.start });
-      cur = midi == null ? null : { midi, start: t, end: t };
+  const midiOf = f => 69 + 12 * Math.log2(f / 440);
+  const rmsOf = a => { let s = 0; for (let i = 0; i < a.length; i++) s += a[i] * a[i]; return Math.sqrt(s / a.length); };
+  const median = a => { const b = a.slice().sort((x, y) => x - y); return b[b.length >> 1]; };
+  // frames: [{t, midi (float, may be null), rms?}] -> notes [{midi, start, dur}]
+  // Built for singing too: tolerant of detuning, vibrato, slides, octave slips and "da-da" on one pitch.
+  function toNotes(frames, minDur = 0.1) {
+    const voiced = frames.filter(f => f.midi != null); if (!voiced.length) return [];
+    const dt = frames.length > 1 ? median(frames.slice(1).map((f, i) => f.t - frames[i].t)) : 0.02;
+    const smooth = (A, k) => A.map((m, i) => { // rolling median, octave slips folded back
+      if (m == null) return null;
+      const w = A.slice(Math.max(0, i - k), i + k + 1).filter(x => x != null); if (w.length < 2) return m;
+      const md = median(w); return median(w.map(y => Math.abs(y - md - 12) < 1 ? y - 12 : Math.abs(y - md + 12) < 1 ? y + 12 : y));
     });
-    if (cur && cur.end - cur.start >= minDur) notes.push({ midi: cur.midi, start: cur.start, dur: cur.end - cur.start });
+    const raw = frames.map(f => f.midi), S0 = smooth(raw, Math.max(1, Math.round(0.04 / dt)));
+    // tuning offset of the whole take (circular mean) from a vibrato-free curve: a singer 30 cents flat stays on the right notes
+    const slow = smooth(S0, Math.max(1, Math.round(0.1 / dt))).filter(x => x != null).map(x => 2 * Math.PI * x);
+    const off = Math.atan2(slow.reduce((a, x) => a + Math.sin(x), 0), slow.reduce((a, x) => a + Math.cos(x), 0)) / (2 * Math.PI);
+    const S = S0.map(m => m == null ? null : m - off);
+    const notes = []; let seg = null, away = null, gap = 0;
+    const close = end => {
+      if (seg && end - seg.start >= minDur && seg.vals.length) {
+        const n = seg.vals.length, core = seg.vals.slice(Math.floor(n * 0.2), Math.max(Math.ceil(n * 0.8), Math.floor(n * 0.2) + 1)); // skip the scoop in and the slide out
+        notes.push({ midi: Math.round(median(core)), start: seg.start, dur: end - seg.start });
+      }
+      seg = null; away = null;
+    };
+    const open = (t, m, r) => { seg = { start: t, vals: m == null ? [] : [m], end: t, peak: r || 0, dipped: false }; };
+    frames.forEach((f, i) => {
+      const m = S[i], t = f.t, r = f.rms;
+      if (m == null) { if (++gap >= 2 && seg) close(seg.end); return; } // a real break, not a single dropout
+      gap = 0;
+      if (!seg) { open(t, m, r); return; }
+      if (r != null) { // same pitch sung again: volume dips, then comes back
+        if (r < seg.peak * 0.45) seg.dipped = true;
+        else if (seg.dipped && r > seg.peak * 0.7) { close(t); open(t, m, r); return; }
+        seg.peak = Math.max(seg.peak, r);
+      }
+      const ref = median(seg.vals.slice(-8));
+      if (Math.abs(m - ref) > 0.6 && Math.round(m) !== Math.round(ref)) { // pitch moved to another note (not just vibrato): new note once it stays for 60 ms
+        if (!away) away = t;
+        if (t - away >= 0.06) { const st = away; close(st); open(st, m, r); }
+        else seg.end = t;
+        return;
+      }
+      away = null;
+      seg.vals.push(m); seg.end = t;
+    });
+    if (seg) close(seg.end);
     return notes;
   }
 
@@ -433,7 +469,7 @@ const Core = (() => {
     return { key, chords: out };
   }
 
-  return { NAMES, name, decimate2, detectPitch, noteOf, fftMag, chroma, detectChord, toNotes, detectKey, harmonize };
+  return { NAMES, name, decimate2, detectPitch, noteOf, midiOf, rmsOf, fftMag, chroma, detectChord, toNotes, detectKey, harmonize };
 })();
 
 // ---- guitar: chord shapes, tabs, rhythm
@@ -669,7 +705,7 @@ function diagram(name, size = '') {
 }
 
 // ---------- microphone + live analysis loop
-let analyser, buf, running = false, micInfo = () => '', quiet = 0, chordHold = [], lastChord = null, lastPitch = null;
+let analyser, buf, running = false, micInfo = () => '', quiet = 0, chordHold = [], lastChord = null, lastPitch = null, lastMidiF = null;
 $('micBtn').onclick = async () => {
   if (running) { running = false; $('micBtn').textContent = '🎤 Mikrofon starten'; $('level').hidden = true; say('Mikrofon gestoppt.'); return; }
   try {
@@ -693,19 +729,20 @@ function loop() {
   if (!running) return;
   analyser.getFloatTimeDomainData(buf);
   let rms = 0; for (let i = buf.length - 2048; i < buf.length; i++) rms += buf[i] * buf[i];
+  const level = Math.sqrt(rms / 2048);
   $('lvlFill').style.width = Math.min(100, Math.sqrt(rms / 2048) * 400) + '%'; // so you can see the mic hears you
   quiet = rms ? 0 : quiet + 1;
   if (quiet === 180) say('Es kommt kein Ton an. ' + micInfo() + '. Schick mir diese Zeile, dann kann ich es reparieren.', true);
   const half = ctx.sampleRate > 32000, x = half ? Core.decimate2(buf) : buf, sr = half ? ctx.sampleRate / 2 : ctx.sampleRate;
   const p = Core.detectPitch(x.subarray(x.length - 2048), sr);
-  lastPitch = p && p.clarity > 0.6 ? Core.noteOf(p.freq) : null;
+  lastPitch = p && p.clarity > 0.6 ? Core.noteOf(p.freq) : null; lastMidiF = lastPitch ? Core.midiOf(p.freq) : null;
   const wantChord = panel === 'hoeren' || (panel === 'ueben' && learnMode !== 'note');
   if (wantChord) { const c = Core.chroma(x.subarray(x.length - 8192), sr), r = c && p ? Core.detectChord(c) : null; lastChord = r && r.best.score > 0.75 ? r.best.name : null; if (panel === 'hoeren') showChord(r, c); }
   if (panel === 'hoeren') showNote(p);
   if (panel === 'stimmen') tune(p);
   if (panel === 'ueben') practiceTick();
   if (follow.on && panel === 'idee') followTick(Math.sqrt(rms / 2048));
-  if (rec) { rec.push({ t: ctx.currentTime - recT0, midi: lastPitch ? lastPitch.midi : null }); $('recLive').textContent = 'Aufnahme … ' + (lastPitch ? 'ich höre ' + noteLabel(lastPitch.midi) : 'lauter summen'); }
+  if (rec) { rec.push({ t: ctx.currentTime - recT0, midi: lastMidiF, rms: level }); $('recLive').textContent = 'Aufnahme … ' + (lastPitch ? 'ich höre ' + noteLabel(lastPitch.midi) : 'lauter summen'); }
   requestAnimationFrame(loop);
 }
 
@@ -791,7 +828,7 @@ function followTick(level) {
     follow.silent = n ? 0 : follow.silent + 1; follow.minRms = Math.min(follow.minRms, level);
     if (follow.silent >= 3 || level > follow.minRms * 1.8 + 0.002 || (n && n.midi !== t.midi)) follow.needRelease = false; else return;
   }
-  const ok = n && (n.midi === t.midi || Math.abs(n.midi - t.midi) === 12); // tolerate octave slips of the detector
+  const ok = lastMidiF != null && [0, 12, -12].some(o => Math.abs(lastMidiF + o - t.midi) < 0.6); // octave slips and slightly off singing still count
   follow.stable = ok ? follow.stable + 1 : 0;
   follow.wrong = n && !ok ? follow.wrong + 1 : 0;
   if (follow.wrong === 10) $('followHeard').textContent = `Ich höre ${noteLabel(n.midi)}, gesucht ist ${noteLabel(t.midi)}`;
@@ -865,7 +902,7 @@ $('fileIn').onchange = async e => {
     if (ab.numberOfChannels > 1) { const r = ab.getChannelData(1); x = x.map((v, i) => (v + r[i]) / 2); }
     while (sr > 32000) { x = Core.decimate2(x); sr /= 2; }
     const frames = [], chords = [];
-    for (let i = 0; i + 2048 <= x.length; i += 512) { const p = Core.detectPitch(x.subarray(i, i + 2048), sr); frames.push({ t: i / sr, midi: p && p.clarity > 0.6 ? Core.noteOf(p.freq).midi : null }); }
+    for (let i = 0; i + 2048 <= x.length; i += 512) { const p = Core.detectPitch(x.subarray(i, i + 2048), sr); frames.push({ t: i / sr, midi: p && p.clarity > 0.6 ? Core.midiOf(p.freq) : null, rms: Core.rmsOf(x.subarray(i + 768, i + 1280)) }); } // short window catches the dip between repeated syllables
     for (let i = 0; i + 8192 <= x.length; i += sr >> 1) { const r = Core.detectChord(Core.chroma(x.subarray(i, i + 8192), sr)); if (r && r.best.score > 0.75) chords.push({ t: i / sr, name: r.best.name }); }
     const notes = Core.toNotes(frames), merged = chords.filter((c, i) => !i || c.name !== chords[i - 1].name);
     $('chordList').hidden = !merged.length; $('chordList').textContent = merged.map(c => `${c.t.toFixed(1)} s  ${c.name}`).join('\n');
@@ -1021,7 +1058,7 @@ $('songIn').onchange = async e => {
     $('songInfo').textContent = 'Erkenne Akkorde und Melodie …'; await new Promise(r => setTimeout(r, 0));
     const inst = o.bandL.map((v, i) => (v + o.bandR[i]) / 2 + o.bass[i]);
     song.chords = StemCore.chordTimeline(inst, sr); const bpm = StemCore.tempo(inst, sr);
-    const frames = []; for (let i = 0; i + 2048 <= o.vocals.length; i += 512) { const pp = Core.detectPitch(o.vocals.subarray(i, i + 2048), sr); frames.push({ t: i / sr, midi: pp && pp.clarity > 0.75 ? Core.noteOf(pp.freq).midi : null }); }
+    const frames = []; for (let i = 0; i + 2048 <= o.vocals.length; i += 512) { const pp = Core.detectPitch(o.vocals.subarray(i, i + 2048), sr); frames.push({ t: i / sr, midi: pp && pp.clarity > 0.75 ? Core.midiOf(pp.freq) : null, rms: Core.rmsOf(o.vocals.subarray(i + 768, i + 1280)) }); }
     song.vocalNotes = Core.toNotes(frames, 0.12);
     $('songProgFill').style.width = '100%'; $('songProg').hidden = true;
     $('songInfo').textContent = `„${song.name}“ · ${fmtT(song.len)} · ca. ${bpm} BPM · ${new Set(song.chords.map(c => c.name)).size} verschiedene Akkorde${ab.numberOfChannels < 2 ? ' · Achtung: Mono-Datei, Trennung nicht möglich' : ''}`;
