@@ -294,18 +294,24 @@ document.querySelectorAll('.tab').forEach(t => t.onclick = () => {
 });
 
 // ---- live microphone
-let ctx, analyser, buf, running = false, chordHold = [];
+let ctx, analyser, buf, running = false, chordHold = [], micInfo = () => '', quiet = 0;
 $('micBtn').onclick = async () => {
   if (running) { running = false; ctx.close(); ctx = null; $('micBtn').textContent = '🎤 Mikrofon starten'; say('Mikrofon gestoppt.'); return; }
   try {
     ctx = new AudioContext(); ctx.resume(); // create + resume inside the tap, or iOS/Safari keeps it silent
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     await ctx.resume(); analyser = ctx.createAnalyser(); analyser.fftSize = 16384;
-    ctx.createMediaStreamSource(stream).connect(analyser);
+    const mute = ctx.createGain(); mute.gain.value = 0;
+    ctx.createMediaStreamSource(stream).connect(analyser); analyser.connect(mute); mute.connect(ctx.destination); // Safari only runs nodes that reach the speakers
+    micInfo = () => { const t = stream.getAudioTracks()[0]; return `Ton-Engine: ${ctx.state}, ${ctx.sampleRate} Hz · Mikro: ${t ? t.readyState + (t.muted ? ', stumm' : '') : 'keins'}`; };
     buf = new Float32Array(analyser.fftSize); running = true;
     $('micBtn').textContent = '■ Mikrofon stoppen'; say('Ich höre zu …'); $('level').hidden = false; loop();
   } catch (e) {
-    say('Das Mikrofon ist hier nicht erlaubt. In der claude.ai-Vorschau ist es gesperrt. Lade die App herunter und öffne sie im Browser, oder lade unten eine Aufnahme hoch.', true);
+    if (ctx) { ctx.close(); ctx = null; }
+    const why = !navigator.mediaDevices ? 'Dieser Browser gibt kein Mikrofon frei. Öffne den Link direkt in Safari oder Chrome, nicht in WhatsApp, Instagram oder der Claude-App.'
+      : e.name === 'NotAllowedError' ? 'Mikrofon wurde nicht erlaubt. Erlaube es in den Browser-Einstellungen für diese Seite und lade neu.'
+      : e.name === 'NotFoundError' ? 'Kein Mikrofon gefunden.' : 'Mikrofon-Fehler: ' + e.name + ' – ' + e.message;
+    say(why, true);
   }
 };
 
@@ -323,6 +329,8 @@ function loop() {
   if (panel === 'learn' && learn.mode === 'note') checkNote(p);
   let rms = 0; for (let i = buf.length - 2048; i < buf.length; i++) rms += buf[i] * buf[i];
   $('lvlFill').style.width = Math.min(100, Math.sqrt(rms / 2048) * 400) + '%'; // so you can see the mic hears you
+  quiet = rms ? 0 : quiet + 1;
+  if (quiet === 180) say('Es kommt kein Ton an. ' + micInfo() + '. Schick mir diese Zeile, dann kann ich es reparieren.', true);
   if (humFrames) { const n = p && p.clarity > 0.6 ? Core.noteOf(p.freq) : null; humFrames.push({ t: ctx.currentTime - humT0, midi: n ? n.midi : null }); $('humKey').textContent = 'Aufnahme … ' + (n ? 'ich höre ' + n.name + n.octave : 'summ lauter'); }
   requestAnimationFrame(loop);
 }
