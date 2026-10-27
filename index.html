@@ -79,6 +79,16 @@ input[type=range]{accent-color:var(--accent)}
 .idea:first-child{border-top:0;padding-top:0}
 button.c{cursor:pointer;color:var(--fg);font:inherit;font-family:var(--f-display);font-weight:800;font-size:1.5rem}
 #spSeek{width:100%}
+.ftab{display:flex;flex-wrap:wrap;gap:2px;font-family:var(--f-mono);overflow:hidden}
+.fcol{display:flex;flex-direction:column;align-items:center;min-width:2.1em;padding:4px 2px;border-radius:8px;border:2px solid transparent}
+.fcol span{line-height:1.45;color:var(--line)}
+.fcol span.n{color:var(--fg);font-weight:700}
+.fcol.lab span{color:var(--muted)}
+.fcol.done span.n{color:var(--good)}
+.fcol.cur{border-color:var(--accent);background:var(--bg)}
+.fcol.cur span.n{color:var(--accent);font-size:1.15em}
+.fcol.hit{animation:hit .35s ease-out}
+@keyframes hit{from{transform:scale(1.25)}to{transform:scale(1)}}
 [hidden]{display:none!important}
 @media (prefers-reduced-motion: reduce){.meter .needle{transition:none}}
 </style>
@@ -131,10 +141,23 @@ button.c{cursor:pointer;color:var(--fg);font:inherit;font-family:var(--f-display
         <button class="btn small" id="playBoth">▶ Beides</button>
         <button class="btn ghost small" id="stopPlay">■ Stopp</button>
         <button class="btn ghost small" id="copyTab">Tab kopieren</button>
+        <button class="btn small" id="followBtn">🎸 Nachspielen</button>
       </div>
       <div class="row" id="saveRow" hidden>
         <input type="text" id="ideaName" placeholder="Name der Idee" aria-label="Name der Idee">
         <button class="btn ghost small" id="saveIdea">💾 Speichern</button>
+      </div>
+    </div>
+    <div class="card" id="followCard" hidden>
+      <div class="prow"><h2>Nachspielen</h2><span class="pill" id="followProg">0 / 0</span></div>
+      <div class="mid" id="followNext">–</div>
+      <div class="sub" id="followHeard">Ich höre: –</div>
+      <div class="ftab" id="followTab" aria-live="polite"></div>
+      <div class="row">
+        <button class="btn ghost small" id="followHear">▶ Ton anhören</button>
+        <button class="btn ghost small" id="followSkip">Überspringen</button>
+        <button class="btn ghost small" id="followRestart">Von vorn</button>
+        <button class="btn ghost small" id="followClose">Schließen</button>
       </div>
     </div>
     <p class="note">Tipp: Lieber „da-da-da“ als lange Bögen, und kurz absetzen, wenn ein Ton sich wiederholt. Die Akkorde sind ein Vorschlag aus der erkannten Tonart. Tabs zeigen die Saite oben hoch (e) und unten tief (E). Die Zahl ist der Bund, 0 heißt leere Saite.</p>
@@ -681,6 +704,7 @@ function loop() {
   if (panel === 'hoeren') showNote(p);
   if (panel === 'stimmen') tune(p);
   if (panel === 'ueben') practiceTick();
+  if (follow.on && panel === 'idee') followTick(Math.sqrt(rms / 2048));
   if (rec) { rec.push({ t: ctx.currentTime - recT0, midi: lastPitch ? lastPitch.midi : null }); $('recLive').textContent = 'Aufnahme … ' + (lastPitch ? 'ich höre ' + noteLabel(lastPitch.midi) : 'lauter summen'); }
   requestAnimationFrame(loop);
 }
@@ -731,7 +755,56 @@ $('recBtn').onclick = () => {
 };
 ['easySel', 'trSel', 'segSel'].forEach(id => $(id).onchange = () => idea && renderIdea());
 
+// ---------- follow mode: shows the tab and waits until you play the highlighted note
+const follow = { on: false, seq: [], i: 0, stable: 0, wrong: 0, needRelease: false, minRms: 1, silent: 0 };
+const STR_NAMES = ['E', 'A', 'D', 'G', 'H', 'e'];
+function followStart() {
+  follow.seq = analyzeIdea().tab; if (!follow.seq.length) return;
+  Object.assign(follow, { on: true, i: 0, stable: 0, wrong: 0, needRelease: false });
+  $('followTab').innerHTML = '<div class="fcol lab">' + [5, 4, 3, 2, 1, 0].map(s => `<span>${STR_NAMES[s]}</span>`).join('') + '</div>' +
+    follow.seq.map((p, i) => `<div class="fcol" id="fc${i}">` + [5, 4, 3, 2, 1, 0].map(s => p.s === s ? `<span class="n">${p.f}</span>` : '<span>–</span>').join('') + '</div>').join('');
+  $('followCard').hidden = false; followShow(); $('followCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  if (!running) say('Tipp auf „🎤 Mikrofon starten“, dann hört die App, was du spielst.', true);
+}
+function followShow() {
+  const n = follow.seq.length, i = follow.i;
+  $('followProg').textContent = `${Math.min(i, n)} / ${n}`;
+  document.querySelectorAll('#followTab .fcol[id]').forEach((el, j) => { el.classList.toggle('done', j < i); el.classList.toggle('cur', j === i); });
+  if (i >= n) { $('followNext').textContent = '🎉 Geschafft!'; $('followNext').classList.add('ok-flash'); markPracticed(); return; }
+  const p = follow.seq[i]; $('followNext').classList.remove('ok-flash');
+  $('followNext').textContent = `${STR_NAMES[p.s]}-Saite, ${p.f === 0 ? 'leer' : 'Bund ' + p.f} (${noteLabel(p.midi)})`;
+  const el = $('fc' + i); if (el) el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+}
+function followHit() {
+  const prev = follow.seq[follow.i], el = $('fc' + follow.i);
+  if (el) { el.classList.remove('hit'); void el.offsetWidth; el.classList.add('hit'); }
+  follow.i++; follow.stable = follow.wrong = 0; follow.minRms = 1; follow.silent = 0;
+  const next = follow.seq[follow.i];
+  follow.needRelease = !!next && next.midi === prev.midi; // same note again: wait for a new pluck
+  followShow();
+}
+function followTick(level) {
+  if (follow.i >= follow.seq.length) return;
+  const t = follow.seq[follow.i], n = lastPitch;
+  $('followHeard').textContent = 'Ich höre: ' + (n ? noteLabel(n.midi) : '–');
+  if (follow.needRelease) { // a repeated note counts only after silence or a fresh attack
+    follow.silent = n ? 0 : follow.silent + 1; follow.minRms = Math.min(follow.minRms, level);
+    if (follow.silent >= 3 || level > follow.minRms * 1.8 + 0.002 || (n && n.midi !== t.midi)) follow.needRelease = false; else return;
+  }
+  const ok = n && (n.midi === t.midi || Math.abs(n.midi - t.midi) === 12); // tolerate octave slips of the detector
+  follow.stable = ok ? follow.stable + 1 : 0;
+  follow.wrong = n && !ok ? follow.wrong + 1 : 0;
+  if (follow.wrong === 10) $('followHeard').textContent = `Ich höre ${noteLabel(n.midi)}, gesucht ist ${noteLabel(t.midi)}`;
+  if (follow.stable >= 4) followHit();
+}
+$('followBtn').onclick = followStart;
+$('followRestart').onclick = followStart;
+$('followClose').onclick = () => { follow.on = false; $('followCard').hidden = true; };
+$('followSkip').onclick = () => follow.i < follow.seq.length && followHit();
+$('followHear').onclick = () => { const p = follow.seq[follow.i]; if (p) pluck(p.midi, audio().currentTime + 0.05); };
+
 function setIdea(notes, name) {
+  follow.on = false; $('followCard').hidden = true;
   idea = { notes, name }; $('ideaName').value = name || '';
   if (!notes.length) { $('ideaInfo').textContent = 'Keine Melodie erkannt. Summ lauter und deutlicher, gern „da-da-da“.'; ['ideaNotes', 'ideaChords', 'ideaDiagrams'].forEach(i => $(i).innerHTML = ''); $('tabBox').hidden = $('ideaActions').hidden = $('saveRow').hidden = true; return; }
   renderIdea();
