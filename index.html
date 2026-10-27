@@ -18,48 +18,65 @@
 :root[data-theme="dark"]{
   --bg:#1B1512; --surface:#261E19; --fg:#F3EAE0; --muted:#B3A291; --line:#3A2E26; --accent:#D9A441; --good:#5FB89A; --warn:#E08A62; --string:#D9B871; color-scheme:dark}
 body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:16px;line-height:1.5}
-.wrap{max-width:860px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:24px 48px;display:flex;flex-direction:column;gap:18px}
+.wrap{max-width:860px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:24px 48px;display:flex;flex-direction:column;gap:16px}
 h1{font-family:var(--f-display);font-weight:800;font-size:clamp(1.9rem,5vw,2.6rem);margin:0;line-height:1.05}
+h2{font-family:var(--f-display);font-size:1.3rem;margin:0}
 header p{margin:4px 0 0;color:var(--muted);max-width:60ch}
 button,select,input{font:inherit;color:var(--fg)}
 .btn{display:inline-flex;align-items:center;gap:8px;border:0;border-radius:10px;padding:10px 16px;font-weight:700;cursor:pointer;background:var(--accent);color:#1B1512}
 .btn.ghost{background:transparent;color:var(--fg);border:1px solid var(--line)}
+.btn.small{padding:6px 12px;font-size:.92rem}
 .btn.rec{background:var(--warn);color:#fff}
-.btn:focus-visible,.tab:focus-visible,select:focus-visible,.file:focus-within{outline:3px solid var(--accent);outline-offset:2px}
-.bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.btn:disabled{opacity:.45;cursor:default}
+.btn:focus-visible,.tab:focus-visible,select:focus-visible,input:focus-visible,.file:focus-within{outline:3px solid var(--accent);outline-offset:2px}
+.bar,.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.row label{display:flex;gap:8px;align-items:center;color:var(--muted);font-size:.92rem}
 .file{display:inline-flex;align-items:center;gap:8px;border:1px dashed var(--line);border-radius:10px;padding:9px 14px;cursor:pointer}
 .file input{position:absolute;opacity:0;width:1px;height:1px}
 .status{font-size:.9rem;color:var(--muted);min-height:1.5em}
 .status.err{color:var(--warn)}
-.tabs{display:flex;gap:6px;flex-wrap:wrap;border-bottom:1px solid var(--line)}
-.tab{background:none;border:0;border-bottom:3px solid transparent;padding:10px 12px;font-weight:700;color:var(--muted);cursor:pointer}
+.lvl{height:8px;border-radius:4px;background:var(--line);overflow:hidden;max-width:420px}
+.lvl i{display:block;height:100%;width:0;background:var(--good)}
+.tabs{display:flex;gap:2px;flex-wrap:wrap;border-bottom:1px solid var(--line)}
+.tab{background:none;border:0;border-bottom:3px solid transparent;padding:10px 10px;font-weight:700;color:var(--muted);cursor:pointer}
 .tab[aria-selected="true"]{color:var(--fg);border-color:var(--accent)}
-.panel{display:flex;flex-direction:column;gap:16px}
-.readout{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:22px 20px;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center}
-.big{font-family:var(--f-display);font-weight:800;font-size:clamp(4rem,18vw,7.5rem);line-height:1;letter-spacing:-.02em;min-height:1em}
-.sub{font-family:var(--f-mono);color:var(--muted);font-size:.95rem}
+.panel{display:flex;flex-direction:column;gap:14px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:20px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.center{align-items:center;text-align:center}
+.big{font-family:var(--f-display);font-weight:800;font-size:clamp(3.6rem,16vw,7rem);line-height:1;letter-spacing:-.02em;min-height:1em}
+.mid{font-family:var(--f-display);font-weight:800;font-size:clamp(1.8rem,7vw,2.6rem);line-height:1.1}
+.sub{font-family:var(--f-mono);color:var(--muted);font-size:.92rem}
 .meter{position:relative;width:min(100%,420px);height:34px}
 .meter .scale{position:absolute;inset:15px 0 auto;height:4px;background:var(--line);border-radius:2px}
-.meter .mid{position:absolute;left:50%;top:6px;width:2px;height:22px;background:var(--good);transform:translateX(-1px)}
+.meter .zero{position:absolute;left:50%;top:6px;width:2px;height:22px;background:var(--good);transform:translateX(-1px)}
 .meter .needle{position:absolute;top:2px;width:6px;height:30px;border-radius:3px;background:var(--accent);left:50%;transform:translateX(-3px);transition:left .08s linear}
 .meter .needle.ok{background:var(--good)}
 .chips{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
 .chip{font-family:var(--f-mono);font-size:.85rem;border:1px solid var(--line);border-radius:999px;padding:2px 10px;color:var(--muted)}
 .chip.on{border-color:var(--accent);color:var(--fg)}
-.prog{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
-.prog .c{font-family:var(--f-display);font-weight:800;font-size:clamp(1.6rem,6vw,2.4rem);background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:6px 14px;min-width:3ch}
-.list{font-family:var(--f-mono);font-size:.9rem;color:var(--muted);max-height:220px;overflow:auto;width:100%;text-align:left;border-top:1px solid var(--line);padding-top:8px}
-.row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
-.row label{display:flex;gap:8px;align-items:center;color:var(--muted);font-size:.92rem}
-select{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:6px 8px}
-.trainer{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;align-items:center}
-.diagram{display:flex;justify-content:center}
-.diagram svg{width:180px;height:auto;max-width:100%}
-.score{font-family:var(--f-display);font-size:1.6rem;font-weight:800}
+.prog{display:flex;flex-wrap:wrap;gap:8px}
+.prog .c{font-family:var(--f-display);font-weight:800;font-size:1.5rem;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:4px 12px;min-width:3ch;text-align:center}
+.prog .c.now{border-color:var(--accent);box-shadow:inset 0 0 0 2px var(--accent)}
+.notes{font-family:var(--f-mono);font-size:1rem;display:flex;flex-wrap:wrap;gap:6px 12px}
+.tabbox{overflow-x:auto;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:12px}
+.tabbox pre{margin:0;font-family:var(--f-mono);font-size:.95rem;line-height:1.35}
+.diagrams{display:flex;flex-wrap:wrap;gap:12px}
+.dg{display:flex;flex-direction:column;align-items:center;font-weight:700}
+.dg svg{width:96px;height:auto}
+.dg.lg svg{width:170px}
+.list{font-family:var(--f-mono);font-size:.9rem;color:var(--muted);max-height:220px;overflow:auto;white-space:pre}
+select,input[type=text]{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:6px 8px;max-width:100%}
+input[type=range]{accent-color:var(--accent)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.song{display:flex;flex-direction:column;gap:6px}
+.song .t{font-weight:700}
+.prow{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.pill{font-size:.8rem;font-weight:700;border-radius:999px;padding:2px 10px;background:var(--bg);border:1px solid var(--line);color:var(--muted)}
+.pill.done{color:var(--good);border-color:var(--good)}
 .ok-flash{color:var(--good)}
 .note{font-size:.88rem;color:var(--muted);margin:0;max-width:70ch}
-.lvl{height:8px;border-radius:4px;background:var(--line);overflow:hidden;max-width:420px}
-.lvl i{display:block;height:100%;width:0;background:var(--good)}
+.idea{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:10px}
+.idea:first-child{border-top:0;padding-top:0}
 [hidden]{display:none!important}
 @media (prefers-reduced-motion: reduce){.meter .needle{transition:none}}
 </style>
@@ -67,74 +84,150 @@ select{background:var(--surface);border:1px solid var(--line);border-radius:8px;
 <div class="wrap">
   <header>
     <h1>Gitarrenohr</h1>
-    <p>Spiel eine Note oder einen Akkord, und die App sagt dir, was sie hört. Oder summ eine Melodie, und du bekommst passende Akkorde dazu.</p>
+    <p>Summ, sing oder spiel deine Idee vor. Du bekommst Noten, Gitarren-Tabs und passende Akkorde und kannst alles anhören, speichern und üben.</p>
   </header>
 
   <div class="bar">
     <button class="btn" id="micBtn">🎤 Mikrofon starten</button>
-    <label class="file">🎙️ Jetzt aufnehmen (Handy)<input type="file" id="capIn" accept="audio/*" capture></label>
-    <label class="file" id="fileLbl">📁 Aufnahme laden (MP3, M4A, WAV)<input type="file" id="fileIn" accept="audio/*"></label>
+    <label class="file">🎙️ Mit Handy aufnehmen<input type="file" id="capIn" accept="audio/*" capture></label>
+    <label class="file">📁 Aufnahme laden<input type="file" id="fileIn" accept="audio/*"></label>
     <button class="btn ghost" id="saveBtn" hidden>App herunterladen</button>
   </div>
   <div class="lvl" id="level" hidden title="Mikrofon-Pegel"><i id="lvlFill"></i></div>
-  <div class="status" id="status" role="status">Starte das Mikrofon oder lade eine Aufnahme.</div>
+  <div class="status" id="status" role="status">Starte das Mikrofon oder nimm etwas auf.</div>
 
   <div class="tabs" role="tablist">
-    <button class="tab" role="tab" id="t-note" aria-selected="true" data-p="note">Note</button>
-    <button class="tab" role="tab" id="t-chord" aria-selected="false" data-p="chord">Akkord</button>
-    <button class="tab" role="tab" id="t-hum" aria-selected="false" data-p="hum">Summen → Akkorde</button>
-    <button class="tab" role="tab" id="t-learn" aria-selected="false" data-p="learn">Üben</button>
+    <button class="tab" role="tab" aria-selected="true" data-p="idee">Idee → Tabs</button>
+    <button class="tab" role="tab" aria-selected="false" data-p="hoeren">Hören</button>
+    <button class="tab" role="tab" aria-selected="false" data-p="stimmen">Stimmen</button>
+    <button class="tab" role="tab" aria-selected="false" data-p="ueben">Üben</button>
+    <button class="tab" role="tab" aria-selected="false" data-p="lieder">Lieder</button>
+    <button class="tab" role="tab" aria-selected="false" data-p="gespeichert">Gespeichert</button>
   </div>
 
-  <section class="panel" id="p-note" role="tabpanel" aria-labelledby="t-note">
-    <div class="readout">
-      <div class="big" id="noteBig">–</div>
-      <div class="meter" aria-hidden="true"><div class="scale"></div><div class="mid"></div><div class="needle" id="needle"></div></div>
-      <div class="sub" id="noteSub">Frequenz und Abweichung erscheinen hier</div>
-      <div class="list" id="noteList" hidden></div>
-    </div>
-    <p class="note">Die Nadel zeigt, ob du zu tief (links) oder zu hoch (rechts) bist, also auch zum Stimmen geeignet. Deutsche Notennamen: H = englisch B, B = englisch B♭.</p>
-  </section>
-
-  <section class="panel" id="p-chord" role="tabpanel" aria-labelledby="t-chord" hidden>
-    <div class="readout">
-      <div class="big" id="chordBig">–</div>
-      <div class="sub" id="chordSub">Schlag einen Akkord an und lass ihn klingen</div>
-      <div class="chips" id="pcChips"></div>
-      <div class="list" id="chordList" hidden></div>
-    </div>
-  </section>
-
-  <section class="panel" id="p-hum" role="tabpanel" aria-labelledby="t-hum" hidden>
+  <!-- Idee: melody -> notes, tabs, chords -->
+  <section class="panel" id="p-idee">
     <div class="row">
-      <button class="btn rec" id="recBtn">● Aufnahme starten</button>
-      <label>Akkordwechsel alle <select id="segSel"><option value="1">1 s</option><option value="1.5">1,5 s</option><option value="2" selected>2 s</option><option value="3">3 s</option><option value="4">4 s</option></select></label>
+      <button class="btn rec" id="recBtn">● Idee aufnehmen</button>
+      <span class="sub" id="recLive">Summen, singen oder auf der Gitarre vorspielen</span>
     </div>
-    <div class="readout">
-      <div class="sub" id="humKey">Summ oder sing eine Melodie, dann stopp die Aufnahme</div>
-      <div class="prog" id="humProg"></div>
-      <div class="list" id="humNotes" hidden></div>
-    </div>
-    <p class="note">Tipp: Deutlich und ohne Text summen, „da-da-da“ geht auch. Die Akkorde sind ein Vorschlag aus der erkannten Tonart, keine einzige richtige Lösung.</p>
-  </section>
-
-  <section class="panel" id="p-learn" role="tabpanel" aria-labelledby="t-learn" hidden>
     <div class="row">
-      <label>Übung <select id="learnMode"><option value="chord">Akkorde greifen</option><option value="note">Noten finden</option></select></label>
-      <button class="btn ghost" id="nextBtn">Nächste Aufgabe</button>
-      <span class="score" id="score">0 ✓</span>
+      <label>Griffe <select id="easySel"><option value="1">einfach (Bund 0–5)</option><option value="0">frei (bis Bund 12)</option></select></label>
+      <label>Transponieren <select id="trSel"></select></label>
+      <label>Akkorde <select id="segSel"><option value="bar">pro Takt</option><option value="half">pro halbem Takt</option><option value="2">alle 2 Sekunden</option></select></label>
     </div>
-    <div class="readout">
-      <div class="trainer">
-        <div>
-          <div class="sub">Spiele:</div>
-          <div class="big" id="target">C</div>
-          <div class="sub" id="heard">Ich höre: –</div>
-        </div>
-        <div class="diagram" id="diagram"></div>
+    <div class="card" id="ideaCard">
+      <div class="sub" id="ideaInfo">Noch keine Idee. Nimm etwas auf, dann erscheinen hier Noten, Tabs und Akkorde.</div>
+      <div class="notes" id="ideaNotes"></div>
+      <div class="tabbox" id="tabBox" hidden><pre id="ideaTab"></pre></div>
+      <div class="prog" id="ideaChords"></div>
+      <div class="diagrams" id="ideaDiagrams"></div>
+      <div class="row" id="ideaActions" hidden>
+        <button class="btn small" id="playMel">▶ Melodie</button>
+        <button class="btn small" id="playCh">▶ Akkorde</button>
+        <button class="btn small" id="playBoth">▶ Beides</button>
+        <button class="btn ghost small" id="stopPlay">■ Stopp</button>
+        <button class="btn ghost small" id="copyTab">Tab kopieren</button>
+      </div>
+      <div class="row" id="saveRow" hidden>
+        <input type="text" id="ideaName" placeholder="Name der Idee" aria-label="Name der Idee">
+        <button class="btn ghost small" id="saveIdea">💾 Speichern</button>
       </div>
     </div>
-    <p class="note">Im Akkord-Modus siehst du das Griffbild (x = Saite nicht spielen, o = leer anschlagen). Halte den Akkord kurz klingen, bis er grün wird. Das Üben braucht das Live-Mikrofon.</p>
+    <p class="note">Tipp: Lieber „da-da-da“ als lange Bögen, und kurz absetzen, wenn ein Ton sich wiederholt. Die Akkorde sind ein Vorschlag aus der erkannten Tonart. Tabs zeigen die Saite oben hoch (e) und unten tief (E). Die Zahl ist der Bund, 0 heißt leere Saite.</p>
+  </section>
+
+  <!-- Hören: live note + chord -->
+  <section class="panel" id="p-hoeren" hidden>
+    <div class="card center">
+      <div class="sub">Note</div>
+      <div class="big" id="noteBig">–</div>
+      <div class="meter" aria-hidden="true"><div class="scale"></div><div class="zero"></div><div class="needle" id="needle"></div></div>
+      <div class="sub" id="noteSub">Spiel eine Saite an</div>
+    </div>
+    <div class="card center">
+      <div class="sub">Akkord</div>
+      <div class="mid" id="chordBig">–</div>
+      <div class="sub" id="chordSub">Schlag einen Akkord an und lass ihn klingen</div>
+      <div class="chips" id="pcChips"></div>
+      <div class="dg lg" id="chordDg"></div>
+      <div class="list" id="chordList" hidden></div>
+    </div>
+    <p class="note">Deutsche Notennamen: H = englisch B, B = englisch B♭.</p>
+  </section>
+
+  <!-- Stimmen: tuner per string -->
+  <section class="panel" id="p-stimmen" hidden>
+    <div class="card center">
+      <div class="sub">Saite</div>
+      <div class="big" id="tuneStr">–</div>
+      <div class="meter" aria-hidden="true"><div class="scale"></div><div class="zero"></div><div class="needle" id="tuneNeedle"></div></div>
+      <div class="mid" id="tuneMsg"> </div>
+      <div class="sub" id="tuneSub">Zupf eine einzelne Saite an</div>
+      <div class="chips" id="strChips"></div>
+    </div>
+    <p class="note">Standardstimmung von tief nach hoch: E A D G H e. Steht die Nadel links, ist die Saite zu tief, also fester drehen.</p>
+  </section>
+
+  <!-- Üben -->
+  <section class="panel" id="p-ueben" hidden>
+    <div class="row">
+      <label>Übung <select id="learnMode"><option value="pfad">Lernpfad (Level)</option><option value="mit">Mitspielen im Takt</option><option value="note">Noten finden</option></select></label>
+      <span class="pill" id="streak">🔥 0 Tage</span>
+    </div>
+
+    <div id="m-pfad" class="panel">
+      <div class="card">
+        <div class="prow"><h2 id="lvlTitle">Level 1</h2><span class="pill" id="lvlProg"></span></div>
+        <div class="prow" id="lvlChords"></div>
+      </div>
+      <div class="card center">
+        <div class="sub">Spiele:</div>
+        <div class="big" id="target">–</div>
+        <div class="sub" id="heard">Ich höre: –</div>
+        <div class="dg lg" id="targetDg"></div>
+        <div class="row"><button class="btn ghost small" id="nextBtn">Nächster Akkord</button><button class="btn ghost small" id="hearTarget">▶ So klingt es</button></div>
+      </div>
+    </div>
+
+    <div id="m-note" class="panel" hidden>
+      <div class="card center">
+        <div class="sub">Finde und spiele die Note:</div>
+        <div class="big" id="noteTarget">–</div>
+        <div class="sub" id="noteHeard">Ich höre: –</div>
+        <div class="sub" id="noteScore">0 richtig</div>
+        <button class="btn ghost small" id="noteNext">Andere Note</button>
+      </div>
+    </div>
+
+    <div id="m-mit" class="panel" hidden>
+      <div class="row">
+        <label>Folge <select id="songSel"></select></label>
+        <label>Tempo <input type="range" id="bpm" min="50" max="160" value="80"> <span id="bpmVal">80</span> BPM</label>
+        <label><input type="checkbox" id="accomp" checked> Begleitung</label>
+      </div>
+      <div class="row"><button class="btn" id="mitStart">▶ Start</button><button class="btn ghost" id="metroBtn">Nur Metronom</button></div>
+      <div class="card center">
+        <div class="sub" id="beatInfo">Zählt 4 Schläge vor, dann geht es los</div>
+        <div class="big" id="mitNow">–</div>
+        <div class="sub" id="mitNext">Danach: –</div>
+        <div class="dg lg" id="mitDg"></div>
+        <div class="sub" id="mitScore"></div>
+      </div>
+      <div class="prog" id="mitProg"></div>
+    </div>
+  </section>
+
+  <!-- Lieder -->
+  <section class="panel" id="p-lieder" hidden>
+    <p class="note">Traditionelle Lieder und typische Akkordfolgen zum Mitspielen. Tipp auf „Mitspielen“, dann läuft die Folge im Takt mit Metronom und Begleitung.</p>
+    <div class="grid" id="songGrid"></div>
+  </section>
+
+  <!-- Gespeichert -->
+  <section class="panel" id="p-gespeichert" hidden>
+    <div class="card" id="ideaList"><div class="sub">Noch nichts gespeichert. Nimm im Tab „Idee → Tabs“ etwas auf und speichere es.</div></div>
+    <p class="note">Ideen werden nur auf diesem Gerät in diesem Browser gespeichert. Mit „Tab kopieren“ kannst du sie zusätzlich sichern.</p>
   </section>
 </div>
 
@@ -276,62 +369,193 @@ const Core = (() => {
 
   return { NAMES, name, decimate2, detectPitch, noteOf, fftMag, chroma, detectChord, toNotes, detectKey, harmonize };
 })();
-if (typeof module !== 'undefined') module.exports = Core;
+
+// ---- guitar: chord shapes, tabs, rhythm
+const GuitarCore = (() => {
+  const { NAMES, name } = Core;
+  const OPEN = [40, 45, 50, 55, 59, 64]; // E2 A2 D3 G3 H3 E4, low to high
+  const STRINGS = ['E', 'A', 'D', 'G', 'H', 'e'];
+  const fromStr = s => [...s].map(c => c === 'x' ? null : +c);
+  const SHAPES = Object.fromEntries(Object.entries({
+    C: 'x32010', D: 'xx0232', E: '022100', G: '320003', A: 'x02220', Am: 'x02210', Dm: 'xx0231', Em: '022000',
+    A7: 'x02020', H7: 'x21202', C7: 'x32310', D7: 'xx0212', E7: '020100', G7: '320001', Am7: 'x02010', Em7: '022030',
+    Dm7: 'xx0211', Cmaj7: 'x32000', Fmaj7: 'xx3210', Dsus2: 'xx0230', Dsus4: 'xx0233', Asus2: 'x02200', Asus4: 'x02230',
+    Esus4: '022200', F: '133211', Fm: '133111' }).map(([k, v]) => [k, fromStr(v)]));
+  // movable barre shapes, frets relative to the root fret on the E (6th) or A (5th) string
+  const E_SHAPE = { '': [0,2,2,1,0,0], m: [0,2,2,0,0,0], 7: [0,2,0,1,0,0], m7: [0,2,0,0,0,0], sus4: [0,2,2,2,0,0], maj7: [0,null,1,1,0,null] };
+  const A_SHAPE = { '': [null,0,2,2,2,0], m: [null,0,2,2,1,0], 7: [null,0,2,0,2,0], m7: [null,0,2,0,1,0], maj7: [null,0,2,1,2,0], sus2: [null,0,2,2,0,0], sus4: [null,0,2,2,3,0], dim: [null,0,1,2,1,null] };
+  function parseChord(nm) { const m = /^([A-H]#?)(.*)$/.exec(nm); return m ? { pc: NAMES.indexOf(m[1]), suf: m[2] } : null; }
+  function chordShape(nm) {
+    if (SHAPES[nm]) return SHAPES[nm];
+    const c = parseChord(nm); if (!c) return null;
+    const opts = [];
+    if (E_SHAPE[c.suf]) { const r = ((c.pc - 4) % 12 + 12) % 12 || 12; opts.push(E_SHAPE[c.suf].map(f => f == null ? null : f + r)); }
+    if (A_SHAPE[c.suf]) { const r = ((c.pc - 9) % 12 + 12) % 12 || 12; opts.push(A_SHAPE[c.suf].map(f => f == null ? null : f + r)); }
+    opts.sort((a, b) => Math.max(...a.filter(f => f != null)) - Math.max(...b.filter(f => f != null)));
+    return opts[0] || null;
+  }
+  const voicing = shape => shape.map((f, i) => f == null ? null : OPEN[i] + f).filter(m => m != null);
+
+  // onsets -> beat length and note positions in eighth notes
+  function rhythm(notes) {
+    if (!notes.length) return { beat: 0.5, bpm: 120, pos: [], len: [] };
+    const ioi = []; for (let i = 1; i < notes.length; i++) ioi.push(notes[i].start - notes[i - 1].start);
+    let beat = ioi.length ? ioi.slice().sort((a, b) => a - b)[ioi.length >> 1] : 0.5;
+    if (beat < 0.33) beat *= 2; // most common gap is usually an eighth when it is short
+    while (beat < 60 / 180) beat *= 2; while (beat > 60 / 50) beat /= 2;
+    const e = beat / 2, pos = [];
+    notes.forEach((n, i) => { let p = Math.round((n.start - notes[0].start) / e); if (i && p <= pos[i - 1]) p = pos[i - 1] + 1; pos.push(p); });
+    const len = pos.map((p, i) => i < pos.length - 1 ? pos[i + 1] - p : Math.max(1, Math.round(notes[i].dur / e)));
+    return { beat, bpm: Math.round(60 / beat), pos, len };
+  }
+
+  // melody -> playable positions; dynamic programming keeps the hand in one area
+  function tabify(notes, easy = true) {
+    const opts = notes.map(n => {
+      let m = n.midi; while (m < OPEN[0]) m += 12; while (m > OPEN[5] + 15) m -= 12;
+      const all = OPEN.map((o, s) => ({ s, f: m - o, midi: m })).filter(p => p.f >= 0 && p.f <= 15);
+      const lim = all.filter(p => p.f <= (easy ? 5 : 12));
+      return lim.length ? lim : all;
+    });
+    if (!opts.length) return [];
+    const move = (a, b) => (a.f === 0 || b.f === 0 ? 0.3 : Math.abs(a.f - b.f)) + 0.1 * Math.abs(a.s - b.s);
+    let cost = opts[0].map(p => 0.15 * p.f), back = [];
+    for (let i = 1; i < opts.length; i++) {
+      const nc = [], nb = [];
+      opts[i].forEach(p => { let best = Infinity, bj = 0; opts[i - 1].forEach((q, j) => { const c = cost[j] + move(q, p); if (c < best) { best = c; bj = j; } }); nc.push(best + 0.15 * p.f); nb.push(bj); });
+      cost = nc; back.push(nb);
+    }
+    let j = cost.indexOf(Math.min(...cost)); const out = [];
+    for (let i = opts.length - 1; i >= 0; i--) { out.unshift(opts[i][j]); if (i) j = back[i - 1][j]; }
+    return out;
+  }
+
+  // ASCII tab, 2 characters per eighth, a bar line every 8 eighths, 2 bars per line
+  function tabText(tab, rh) {
+    if (!tab.length) return '';
+    const total = rh.pos.at(-1) + rh.len.at(-1), at = {}; tab.forEach((p, i) => at[rh.pos[i]] = p);
+    const blocks = [];
+    for (let start = 0; start < total; start += 16) {
+      const rows = [5, 4, 3, 2, 1, 0].map(s => STRINGS[s].padEnd(2) + '|');
+      for (let p = start; p < Math.min(start + 16, total); p++) {
+        [5, 4, 3, 2, 1, 0].forEach((s, r) => { const n = at[p]; rows[r] += n && n.s === s ? String(n.f).padEnd(2, '-') : '--'; });
+        if ((p + 1) % 8 === 0 || p === total - 1) rows.forEach((_, r) => rows[r] += '|');
+      }
+      blocks.push(rows.join('\n'));
+    }
+    return blocks.join('\n\n');
+  }
+  const SYM = { 1: '♪', 2: '♩', 3: '♩.', 4: '𝅗𝅥', 6: '𝅗𝅥.', 8: '𝅝' };
+  const lenSym = l => SYM[l] || l + '/8';
+  return { OPEN, STRINGS, SHAPES, parseChord, chordShape, voicing, rhythm, tabify, tabText, lenSym };
+})();
+if (typeof module !== 'undefined') module.exports = { Core, GuitarCore };
 /*CORE-END*/
 </script>
 
 <script>
 const $ = id => document.getElementById(id);
+const G = GuitarCore;
 const say = (msg, err) => { $('status').textContent = msg; $('status').classList.toggle('err', !!err); };
-let panel = 'note';
+const store = {
+  get(k, d) { try { const v = localStorage.getItem('gitarrenohr.' + k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem('gitarrenohr.' + k, JSON.stringify(v)); } catch (e) {} }
+};
+const noteLabel = midi => Core.name(midi) + (Math.floor(midi / 12) - 1);
+let panel = 'idee';
 
-// ---- tabs
-document.querySelectorAll('.tab').forEach(t => t.onclick = () => {
-  panel = t.dataset.p;
-  document.querySelectorAll('.tab').forEach(x => x.setAttribute('aria-selected', x === t));
-  ['note', 'chord', 'hum', 'learn'].forEach(p => $('p-' + p).hidden = p !== panel);
-  if (panel === 'learn') newTask();
-});
+// ---------- tabs
+document.querySelectorAll('.tab').forEach(t => t.onclick = () => showPanel(t.dataset.p));
+function showPanel(p) {
+  panel = p;
+  document.querySelectorAll('.tab').forEach(x => x.setAttribute('aria-selected', x.dataset.p === p));
+  ['idee', 'hoeren', 'stimmen', 'ueben', 'lieder', 'gespeichert'].forEach(x => $('p-' + x).hidden = x !== p);
+  if (p === 'gespeichert') renderIdeas();
+}
 
-// ---- live microphone
-let ctx, analyser, buf, running = false, chordHold = [], micInfo = () => '', quiet = 0;
+// ---------- audio output: plucked-string synth, strums, clicks
+let ctx = null;
+function audio() { if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)(); if (ctx.state === 'suspended') ctx.resume(); return ctx; }
+const pluckCache = {}, playing = [];
+function pluckBuf(midi) {
+  const a = audio(), key = midi + '@' + a.sampleRate; if (pluckCache[key]) return pluckCache[key];
+  const sr = a.sampleRate, f = 440 * 2 ** ((midi - 69) / 12), N = Math.max(2, Math.round(sr / f)), len = Math.floor(sr * 1.8);
+  const b = a.createBuffer(1, len, sr), d = b.getChannelData(0), ring = new Float32Array(N);
+  for (let i = 0; i < N; i++) ring[i] = Math.random() * 2 - 1;
+  const damp = 0.997 - Math.min(0.006, f / 150000);
+  for (let i = 0, j = 0; i < len; i++) { const n = (j + 1) % N, v = ring[j]; ring[j] = damp * 0.5 * (v + ring[n]); d[i] = v * 0.35; j = n; } // Karplus-Strong
+  return pluckCache[key] = b;
+}
+function pluck(midi, t, vol = 1) {
+  const a = audio(), s = a.createBufferSource(), g = a.createGain();
+  s.buffer = pluckBuf(midi); g.gain.value = vol; s.connect(g); g.connect(a.destination); s.start(t); playing.push(s);
+}
+function strum(name, t, vol = 0.55) { const sh = G.chordShape(name); if (sh) G.voicing(sh).forEach((m, i) => pluck(m, t + i * 0.02, vol)); }
+function click(t, accent) {
+  const a = audio(), o = a.createOscillator(), g = a.createGain();
+  o.frequency.value = accent ? 1700 : 1100; g.gain.setValueAtTime(0.25, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
+  o.connect(g); g.connect(a.destination); o.start(t); o.stop(t + 0.06);
+}
+function stopAll() { playing.splice(0).forEach(s => { try { s.stop(); } catch (e) {} }); }
+
+// ---------- chord diagram (strings low E left -> high e right)
+function diagram(name, size = '') {
+  const sh = G.chordShape(name);
+  if (!sh) return `<div class="dg ${size}"><span>${name}</span><span class="sub">kein Griffbild</span></div>`;
+  const fretted = sh.filter(f => f > 0), maxF = Math.max(0, ...fretted), base = maxF <= 4 ? 1 : Math.min(...fretted);
+  const xs = [20, 44, 68, 92, 116, 140];
+  let s = `<svg viewBox="0 0 160 170" role="img" aria-label="Griffbild ${name}">`;
+  s += base === 1 ? '<rect x="18" y="28" width="124" height="5" fill="currentColor"/>' : `<text x="152" y="52" text-anchor="end" font-size="13" fill="var(--muted)">${base}.</text>`;
+  for (let f = 1; f <= 4; f++) s += `<line x1="20" x2="140" y1="${30 + f * 32}" y2="${30 + f * 32}" stroke="var(--line)" stroke-width="2"/>`;
+  xs.forEach(x => s += `<line x1="${x}" x2="${x}" y1="30" y2="158" stroke="var(--string)" stroke-width="2"/>`);
+  const low = fretted.length ? Math.min(...fretted) : 0, barre = sh.map((f, i) => f === low ? i : -1).filter(i => i >= 0);
+  if (low > 0 && barre.length >= 3 && sh[barre[0]] === low && sh.slice(barre[0]).every(f => f == null || f >= low))
+    s += `<rect x="${xs[barre[0]] - 9}" y="${30 + (low - base + 1) * 32 - 25}" width="${xs[barre.at(-1)] - xs[barre[0]] + 18}" height="18" rx="9" fill="var(--accent)"/>`;
+  sh.forEach((f, i) => {
+    if (f == null) s += `<text x="${xs[i]}" y="20" text-anchor="middle" font-size="14" fill="var(--muted)">x</text>`;
+    else if (f === 0) s += `<circle cx="${xs[i]}" cy="15" r="5" fill="none" stroke="var(--muted)" stroke-width="2"/>`;
+    else s += `<circle cx="${xs[i]}" cy="${30 + (f - base + 1) * 32 - 16}" r="10" fill="var(--accent)"/>`;
+  });
+  return `<div class="dg ${size}">${s}</svg><span>${name}</span></div>`;
+}
+
+// ---------- microphone + live analysis loop
+let analyser, buf, running = false, micInfo = () => '', quiet = 0, chordHold = [], lastChord = null, lastPitch = null;
 $('micBtn').onclick = async () => {
-  if (running) { running = false; ctx.close(); ctx = null; $('micBtn').textContent = '🎤 Mikrofon starten'; say('Mikrofon gestoppt.'); return; }
+  if (running) { running = false; $('micBtn').textContent = '🎤 Mikrofon starten'; $('level').hidden = true; say('Mikrofon gestoppt.'); return; }
   try {
-    ctx = new AudioContext(); ctx.resume(); // create + resume inside the tap, or iOS/Safari keeps it silent
+    audio(); // create + resume inside the tap, or iOS/Safari keeps it silent
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     await ctx.resume(); analyser = ctx.createAnalyser(); analyser.fftSize = 16384;
     const mute = ctx.createGain(); mute.gain.value = 0;
     ctx.createMediaStreamSource(stream).connect(analyser); analyser.connect(mute); mute.connect(ctx.destination); // Safari only runs nodes that reach the speakers
     micInfo = () => { const t = stream.getAudioTracks()[0]; return `Ton-Engine: ${ctx.state}, ${ctx.sampleRate} Hz · Mikro: ${t ? t.readyState + (t.muted ? ', stumm' : '') : 'keins'}`; };
-    buf = new Float32Array(analyser.fftSize); running = true;
-    $('micBtn').textContent = '■ Mikrofon stoppen'; say('Ich höre zu …'); $('level').hidden = false; loop();
+    buf = new Float32Array(analyser.fftSize); running = true; quiet = 0;
+    $('micBtn').textContent = '■ Mikrofon stoppen'; $('level').hidden = false; say('Ich höre zu …'); loop();
   } catch (e) {
-    if (ctx) { ctx.close(); ctx = null; }
-    const why = !navigator.mediaDevices ? 'Dieser Browser gibt kein Mikrofon frei. Öffne den Link direkt in Safari oder Chrome, nicht in WhatsApp, Instagram oder der Claude-App.'
-      : e.name === 'NotAllowedError' ? 'Mikrofon wurde nicht erlaubt. Erlaube es in den Browser-Einstellungen für diese Seite und lade neu.'
+    const why = !navigator.mediaDevices ? 'Dieser Browser gibt kein Mikrofon frei. Öffne den Link direkt in Safari oder Chrome, nicht in WhatsApp, Instagram oder der Claude-App. Oder nutze „Mit Handy aufnehmen“.'
+      : e.name === 'NotAllowedError' ? 'Mikrofon nicht erlaubt. Erlaube es in den Browser-Einstellungen für diese Seite und lade neu. Oder nutze „Mit Handy aufnehmen“.'
       : e.name === 'NotFoundError' ? 'Kein Mikrofon gefunden.' : 'Mikrofon-Fehler: ' + e.name + ' – ' + e.message;
     say(why, true);
   }
 };
 
-let humFrames = null, humT0 = 0;
 function loop() {
   if (!running) return;
   analyser.getFloatTimeDomainData(buf);
-  const half = ctx.sampleRate > 32000, x = half ? Core.decimate2(buf) : buf, sr = half ? ctx.sampleRate / 2 : ctx.sampleRate;
-  const p = Core.detectPitch(x.subarray(x.length - 2048), sr);
-  if (panel === 'note') showNote(p);
-  if (panel === 'chord' || (panel === 'learn' && learn.mode === 'chord')) {
-    const c = Core.chroma(x.subarray(x.length - 8192), sr), r = c && p ? Core.detectChord(c) : null;
-    if (panel === 'chord') showChord(r, c); else checkChord(r);
-  }
-  if (panel === 'learn' && learn.mode === 'note') checkNote(p);
   let rms = 0; for (let i = buf.length - 2048; i < buf.length; i++) rms += buf[i] * buf[i];
   $('lvlFill').style.width = Math.min(100, Math.sqrt(rms / 2048) * 400) + '%'; // so you can see the mic hears you
   quiet = rms ? 0 : quiet + 1;
   if (quiet === 180) say('Es kommt kein Ton an. ' + micInfo() + '. Schick mir diese Zeile, dann kann ich es reparieren.', true);
-  if (humFrames) { const n = p && p.clarity > 0.6 ? Core.noteOf(p.freq) : null; humFrames.push({ t: ctx.currentTime - humT0, midi: n ? n.midi : null }); $('humKey').textContent = 'Aufnahme … ' + (n ? 'ich höre ' + n.name + n.octave : 'summ lauter'); }
+  const half = ctx.sampleRate > 32000, x = half ? Core.decimate2(buf) : buf, sr = half ? ctx.sampleRate / 2 : ctx.sampleRate;
+  const p = Core.detectPitch(x.subarray(x.length - 2048), sr);
+  lastPitch = p && p.clarity > 0.6 ? Core.noteOf(p.freq) : null;
+  const wantChord = panel === 'hoeren' || (panel === 'ueben' && learnMode !== 'note');
+  if (wantChord) { const c = Core.chroma(x.subarray(x.length - 8192), sr), r = c && p ? Core.detectChord(c) : null; lastChord = r && r.best.score > 0.75 ? r.best.name : null; if (panel === 'hoeren') showChord(r, c); }
+  if (panel === 'hoeren') showNote(p);
+  if (panel === 'stimmen') tune(p);
+  if (panel === 'ueben') practiceTick();
+  if (rec) { rec.push({ t: ctx.currentTime - recT0, midi: lastPitch ? lastPitch.midi : null }); $('recLive').textContent = 'Aufnahme … ' + (lastPitch ? 'ich höre ' + noteLabel(lastPitch.midi) : 'lauter summen'); }
   requestAnimationFrame(loop);
 }
 
@@ -340,103 +564,231 @@ function showNote(p) {
   const n = Core.noteOf(p.freq);
   $('noteBig').textContent = n.name + n.octave;
   $('noteSub').textContent = `${p.freq.toFixed(1)} Hz · ${n.cents > 0 ? '+' : ''}${n.cents} Cent`;
-  const nd = $('needle'); nd.style.left = (50 + n.cents) + '%'; nd.classList.toggle('ok', Math.abs(n.cents) <= 5);
+  $('needle').style.left = (50 + n.cents) + '%'; $('needle').classList.toggle('ok', Math.abs(n.cents) <= 5);
 }
+let shownChord = null;
 function showChord(r, c) {
-  chordHold.push(r ? r.best.name : null); if (chordHold.length > 12) chordHold.shift();
+  chordHold.push(r && r.best.score > 0.75 ? r.best.name : null); if (chordHold.length > 12) chordHold.shift();
   const counts = {}; chordHold.forEach(x => x && (counts[x] = (counts[x] || 0) + 1));
   const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
-  if (top && top[1] >= 6) { $('chordBig').textContent = top[0]; $('chordSub').textContent = r ? 'Alternativen: ' + r.alt.map(a => a.name).join(', ') : ''; }
+  if (top && top[1] >= 6 && top[0] !== shownChord) {
+    shownChord = top[0]; $('chordBig').textContent = top[0]; $('chordDg').innerHTML = diagram(top[0], 'lg');
+    $('chordSub').textContent = r ? 'Ähnlich: ' + r.alt.map(a => a.name).join(', ') : '';
+  }
   $('pcChips').innerHTML = c ? Core.NAMES.map((nm, i) => `<span class="chip${c.ch[i] > 0.45 ? ' on' : ''}">${nm}</span>`).join('') : '';
 }
 
-// ---- recording for humming
-$('recBtn').onclick = () => {
-  if (!running) { say('Bitte zuerst das Mikrofon starten, oder eine Aufnahme laden.', true); return; }
-  if (!humFrames) { humFrames = []; humT0 = ctx.currentTime; $('recBtn').textContent = '■ Aufnahme stoppen'; say('Aufnahme läuft, summ jetzt …'); return; }
-  const frames = humFrames; humFrames = null; $('recBtn').textContent = '● Aufnahme starten';
-  showHum(Core.toNotes(frames)); say('Fertig.');
-};
-$('segSel').onchange = () => lastNotes && showHum(lastNotes);
-let lastNotes = null;
-function showHum(notes) {
-  lastNotes = notes;
-  const r = Core.harmonize(notes, +$('segSel').value);
-  if (!r.key) { $('humKey').textContent = 'Keine Melodie erkannt, versuch es lauter und deutlicher.'; $('humProg').innerHTML = ''; return; }
-  $('humKey').textContent = `Tonart: ${r.key.name} · ${notes.length} Töne erkannt`;
-  $('humProg').innerHTML = r.chords.map(c => `<span class="c">${c}</span>`).join('');
-  $('humNotes').hidden = false;
-  $('humNotes').textContent = 'Melodie: ' + notes.map(n => Core.name(n.midi) + (Math.floor(n.midi / 12) - 1)).join(' ');
+// ---------- tuner
+const TUNE = [['E', 40], ['A', 45], ['D', 50], ['G', 55], ['H', 59], ['e', 64]];
+$('strChips').innerHTML = TUNE.map(([n], i) => `<span class="chip" id="sc${i}">${n}</span>`).join('');
+function tune(p) {
+  if (!p || p.clarity < 0.7) return;
+  const m = 69 + 12 * Math.log2(p.freq / 440);
+  let bi = 0; TUNE.forEach(([, t], i) => { if (Math.abs(m - t) < Math.abs(m - TUNE[bi][1])) bi = i; });
+  const cents = Math.round((m - TUNE[bi][1]) * 100), c = Math.max(-50, Math.min(50, cents));
+  $('tuneStr').textContent = TUNE[bi][0];
+  $('tuneNeedle').style.left = (50 + c) + '%'; $('tuneNeedle').classList.toggle('ok', Math.abs(cents) <= 5);
+  $('tuneMsg').textContent = Math.abs(cents) <= 5 ? '✓ Gestimmt' : cents < 0 ? 'Zu tief, fester drehen' : 'Zu hoch, lockerer drehen';
+  $('tuneMsg').classList.toggle('ok-flash', Math.abs(cents) <= 5);
+  $('tuneSub').textContent = `${p.freq.toFixed(1)} Hz · ${cents > 0 ? '+' : ''}${cents} Cent`;
+  TUNE.forEach((_, i) => $('sc' + i).classList.toggle('on', i === bi));
 }
 
-// ---- audio file analysis (works in the claude.ai viewer too)
-$('capIn').onchange = e => $('fileIn').onchange(e); // phone's own recorder, works where live mic is blocked
+// ---------- idea: record -> notes, tabs, chords
+let rec = null, recT0 = 0, idea = null;
+for (let i = -6; i <= 6; i++) $('trSel').insertAdjacentHTML('beforeend', `<option value="${i}" ${i ? '' : 'selected'}>${i > 0 ? '+' + i : i === 0 ? 'nein' : i}</option>`);
+$('recBtn').onclick = () => {
+  if (!running) { say('Bitte zuerst „Mikrofon starten“ tippen, oder „Mit Handy aufnehmen“ nutzen.', true); return; }
+  if (!rec) { rec = []; recT0 = ctx.currentTime; $('recBtn').textContent = '■ Stopp'; return; }
+  const frames = rec; rec = null; $('recBtn').textContent = '● Idee aufnehmen'; $('recLive').textContent = 'Summen, singen oder auf der Gitarre vorspielen';
+  setIdea(Core.toNotes(frames), '');
+};
+['easySel', 'trSel', 'segSel'].forEach(id => $(id).onchange = () => idea && renderIdea());
+
+function setIdea(notes, name) {
+  idea = { notes, name }; $('ideaName').value = name || '';
+  if (!notes.length) { $('ideaInfo').textContent = 'Keine Melodie erkannt. Summ lauter und deutlicher, gern „da-da-da“.'; ['ideaNotes', 'ideaChords', 'ideaDiagrams'].forEach(i => $(i).innerHTML = ''); $('tabBox').hidden = $('ideaActions').hidden = $('saveRow').hidden = true; return; }
+  renderIdea();
+}
+function analyzeIdea() {
+  const tr = +$('trSel').value, notes = idea.notes.map(n => ({ ...n, midi: n.midi + tr }));
+  const rh = G.rhythm(notes), tab = G.tabify(notes, $('easySel').value === '1');
+  const segV = $('segSel').value, seg = segV === 'bar' ? rh.beat * 4 : segV === 'half' ? rh.beat * 2 : +segV;
+  return { notes, rh, tab, seg, h: Core.harmonize(notes, seg) };
+}
+function renderIdea() {
+  const { notes, rh, tab, h } = analyzeIdea();
+  $('ideaInfo').textContent = `${notes.length} Töne · Tonart ${h.key.name} · Tempo ca. ${rh.bpm} BPM`;
+  $('ideaNotes').innerHTML = notes.map((n, i) => `<span>${noteLabel(tab[i] ? tab[i].midi : n.midi)} ${G.lenSym(rh.len[i])}</span>`).join('');
+  $('ideaTab').textContent = G.tabText(tab, rh); $('tabBox').hidden = false;
+  $('ideaChords').innerHTML = h.chords.map((c, i) => `<span class="c" id="ic${i}">${c}</span>`).join('');
+  $('ideaDiagrams').innerHTML = [...new Set(h.chords)].map(c => diagram(c)).join('');
+  $('ideaActions').hidden = $('saveRow').hidden = false;
+}
+function playIdea(mel, chords) {
+  stopAll(); const a = audio(), { notes, rh, tab, seg, h } = analyzeIdea(), e = rh.beat / 2, t0 = a.currentTime + 0.15;
+  if (mel) tab.forEach((p, i) => pluck(p.midi, t0 + rh.pos[i] * e, 0.9));
+  if (chords) h.chords.forEach((c, i) => { strum(c, t0 + i * seg, mel ? 0.35 : 0.55); if (seg >= rh.beat * 4) strum(c, t0 + i * seg + seg / 2, mel ? 0.25 : 0.4); });
+}
+$('playMel').onclick = () => playIdea(true, false);
+$('playCh').onclick = () => playIdea(false, true);
+$('playBoth').onclick = () => playIdea(true, true);
+$('stopPlay').onclick = stopAll;
+$('copyTab').onclick = async () => {
+  const { h } = analyzeIdea(), text = `${$('ideaInfo').textContent}\nAkkorde: ${h.chords.join(' ')}\n\n${$('ideaTab').textContent}`;
+  try { await navigator.clipboard.writeText(text); say('Tab kopiert.'); } catch (e) { const r = document.createRange(); r.selectNodeContents($('ideaTab')); getSelection().removeAllRanges(); getSelection().addRange(r); say('Kopieren nicht erlaubt: Der Tab ist markiert, kopiere ihn von Hand.'); }
+};
+
+// ---------- saved ideas (this device only)
+$('saveIdea').onclick = () => {
+  if (!idea || !idea.notes.length) return;
+  const list = store.get('ideas', []), name = $('ideaName').value.trim() || 'Idee vom ' + new Date().toLocaleDateString('de-DE');
+  list.unshift({ id: Date.now(), name, date: new Date().toISOString(), notes: idea.notes.map(n => ({ midi: n.midi, start: +n.start.toFixed(3), dur: +n.dur.toFixed(3) })) });
+  store.set('ideas', list); idea.name = name; say(`„${name}“ gespeichert.`);
+};
+function renderIdeas() {
+  const list = store.get('ideas', []);
+  if (!list.length) return;
+  $('ideaList').innerHTML = list.map(it => `<div class="idea"><div><div><b></b></div><div class="sub">${new Date(it.date).toLocaleString('de-DE')} · ${it.notes.length} Töne</div></div><div class="row"><button class="btn small" data-load="${it.id}">Öffnen</button><button class="btn ghost small" data-del="${it.id}">Löschen</button></div></div>`).join('');
+  $('ideaList').querySelectorAll('b').forEach((b, i) => b.textContent = list[i].name); // names via textContent, never as HTML
+  $('ideaList').querySelectorAll('[data-load]').forEach(b => b.onclick = () => { const it = list.find(x => x.id == b.dataset.load); setIdea(it.notes, it.name); showPanel('idee'); });
+  $('ideaList').querySelectorAll('[data-del]').forEach(b => b.onclick = () => { store.set('ideas', list.filter(x => x.id != b.dataset.del)); if (list.length === 1) $('ideaList').innerHTML = '<div class="sub">Noch nichts gespeichert.</div>'; else renderIdeas(); });
+}
+
+// ---------- audio files (works where the live mic is blocked)
+$('capIn').onchange = e => $('fileIn').onchange(e);
 $('fileIn').onchange = async e => {
   const f = e.target.files[0]; if (!f) return;
   say('Analysiere „' + f.name + '“ …');
   try {
-    const ac = new (window.OfflineAudioContext || window.AudioContext)(1, 1, 44100);
-    const ab = await ac.decodeAudioData(await f.arrayBuffer());
+    const ab = await audio().decodeAudioData(await f.arrayBuffer());
     let x = ab.getChannelData(0), sr = ab.sampleRate;
     if (ab.numberOfChannels > 1) { const r = ab.getChannelData(1); x = x.map((v, i) => (v + r[i]) / 2); }
     while (sr > 32000) { x = Core.decimate2(x); sr /= 2; }
-    const hop = 512, frames = [], chords = [];
-    for (let i = 0; i + 2048 <= x.length; i += hop) { const p = Core.detectPitch(x.subarray(i, i + 2048), sr); frames.push({ t: i / sr, midi: p && p.clarity > 0.6 ? Core.noteOf(p.freq).midi : null }); }
+    const frames = [], chords = [];
+    for (let i = 0; i + 2048 <= x.length; i += 512) { const p = Core.detectPitch(x.subarray(i, i + 2048), sr); frames.push({ t: i / sr, midi: p && p.clarity > 0.6 ? Core.noteOf(p.freq).midi : null }); }
     for (let i = 0; i + 8192 <= x.length; i += sr >> 1) { const r = Core.detectChord(Core.chroma(x.subarray(i, i + 8192), sr)); if (r && r.best.score > 0.75) chords.push({ t: i / sr, name: r.best.name }); }
-    const notes = Core.toNotes(frames);
-    $('noteList').hidden = false; $('noteList').textContent = notes.length ? notes.map(n => `${n.start.toFixed(2)} s  ${Core.name(n.midi)}${Math.floor(n.midi / 12) - 1}`).join('\n') : 'Keine Noten erkannt.';
-    $('noteList').style.whiteSpace = 'pre';
-    if (notes.length) { const n = notes.reduce((a, b) => b.dur > a.dur ? b : a); $('noteBig').textContent = Core.name(n.midi) + (Math.floor(n.midi / 12) - 1); $('noteSub').textContent = 'Längster Ton der Aufnahme'; }
-    const merged = chords.filter((c, i) => !i || c.name !== chords[i - 1].name);
-    $('chordList').hidden = false; $('chordList').style.whiteSpace = 'pre';
-    $('chordList').textContent = merged.length ? merged.map(c => `${c.t.toFixed(1)} s  ${c.name}`).join('\n') : 'Keine Akkorde erkannt.';
-    if (merged.length) { $('chordBig').textContent = merged.map(c => c.name).slice(0, 6).join(' '); $('chordSub').textContent = 'Akkordfolge der Aufnahme'; }
-    showHum(notes);
-    say(`Fertig: ${notes.length} Töne, ${merged.length} Akkordwechsel. Die Ergebnisse stehen in allen drei Tabs.`);
+    const notes = Core.toNotes(frames), merged = chords.filter((c, i) => !i || c.name !== chords[i - 1].name);
+    $('chordList').hidden = !merged.length; $('chordList').textContent = merged.map(c => `${c.t.toFixed(1)} s  ${c.name}`).join('\n');
+    if (merged.length) { $('chordBig').textContent = merged.map(c => c.name).slice(0, 6).join(' '); $('chordSub').textContent = 'Gespielte Akkorde in der Aufnahme'; $('chordDg').innerHTML = ''; }
+    setIdea(notes, f.name.replace(/\.[^.]+$/, '')); showPanel('idee');
+    say(`Fertig: ${notes.length} Töne erkannt. Gespielte Akkorde stehen im Tab „Hören“.`);
   } catch (err) { say('Die Datei ließ sich nicht lesen. Probier MP3, M4A oder WAV.', true); }
   e.target.value = '';
 };
 
-// ---- trainer
-const SHAPES = { C: 'x32010', G: '320003', D: 'xx0232', A: 'x02220', E: '022100', Am: 'x02210', Em: '022000', Dm: 'xx0231', E7: '020100', A7: 'x02020', D7: 'xx0212', F: '133211' };
-const learn = { mode: 'chord', target: 'C', score: 0, hold: 0 };
-$('learnMode').onchange = e => { learn.mode = e.target.value; newTask(); };
-$('nextBtn').onclick = () => newTask();
-function newTask() {
-  const pool = learn.mode === 'chord' ? Object.keys(SHAPES) : ['C', 'D', 'E', 'F', 'G', 'A', 'H'];
-  let t; do t = pool[Math.floor(Math.random() * pool.length)]; while (t === learn.target && pool.length > 1);
-  learn.target = t; learn.hold = 0;
-  $('target').textContent = t; $('target').classList.remove('ok-flash'); $('heard').textContent = 'Ich höre: –';
-  $('diagram').innerHTML = learn.mode === 'chord' ? diagram(SHAPES[t]) : '';
+// ---------- practice: learning path, play-along, note finder
+const LEVELS = [
+  { t: 'Level 1: Die ersten Akkorde', c: ['Em', 'Am'] }, { t: 'Level 2: Dur-Klang', c: ['E', 'A'] }, { t: 'Level 3: Lagerfeuer', c: ['D', 'G'] },
+  { t: 'Level 4: C und Dm', c: ['C', 'Dm'] }, { t: 'Level 5: Septakkorde', c: ['E7', 'A7', 'D7'] }, { t: 'Level 6: Alles gemischt', c: ['G', 'C', 'D', 'Em', 'Am'] },
+  { t: 'Level 7: Barré', c: ['F', 'H7'] }];
+const NEED = 3;
+let learnMode = 'pfad', pfad = store.get('pfad', { level: 0, hits: {} }), target = null, hold = 0;
+$('learnMode').onchange = e => { learnMode = e.target.value; ['pfad', 'mit', 'note'].forEach(m => $('m-' + m).hidden = m !== learnMode); if (learnMode === 'note') newNoteTask(); };
+function renderLevel() {
+  const L = LEVELS[Math.min(pfad.level, LEVELS.length - 1)];
+  $('lvlTitle').textContent = L.t;
+  $('lvlProg').textContent = `Level ${pfad.level + 1} von ${LEVELS.length}`;
+  $('lvlChords').innerHTML = L.c.map(c => `<span class="pill${(pfad.hits[c] || 0) >= NEED ? ' done' : ''}">${c} ${Math.min(pfad.hits[c] || 0, NEED)}/${NEED}</span>`).join('');
 }
-function success() {
-  learn.score++; $('score').textContent = learn.score + ' ✓'; $('target').classList.add('ok-flash');
-  learn.hold = -999; setTimeout(newTask, 1200);
+function newTarget() {
+  const L = LEVELS[Math.min(pfad.level, LEVELS.length - 1)], open = L.c.filter(c => (pfad.hits[c] || 0) < NEED), pool = open.length ? open : L.c;
+  let t; do t = pool[Math.floor(Math.random() * pool.length)]; while (t === target && pool.length > 1);
+  target = t; hold = 0; $('target').textContent = t; $('target').classList.remove('ok-flash'); $('targetDg').innerHTML = diagram(t, 'lg'); renderLevel();
 }
-function checkChord(r) {
-  const h = r && r.best.score > 0.75 ? r.best.name : null; $('heard').textContent = 'Ich höre: ' + (h || '–');
-  learn.hold = h === learn.target ? learn.hold + 1 : Math.min(learn.hold, 0);
-  if (learn.hold > 20) success();
+function markPracticed() {
+  const today = new Date().toISOString().slice(0, 10), s = store.get('streak', { last: '', days: 0 });
+  if (s.last !== today) { const y = new Date(Date.now() - 864e5).toISOString().slice(0, 10); s.days = s.last === y ? s.days + 1 : 1; s.last = today; store.set('streak', s); }
+  showStreak();
 }
-function checkNote(p) {
-  const h = p && p.clarity > 0.6 ? Core.noteOf(p.freq).name : null; $('heard').textContent = 'Ich höre: ' + (h || '–');
-  learn.hold = h === learn.target ? learn.hold + 1 : Math.min(learn.hold, 0);
-  if (learn.hold > 12) success();
+function showStreak() { const s = store.get('streak', { last: '', days: 0 }), y = new Date(Date.now() - 864e5).toISOString().slice(0, 10), alive = s.last === new Date().toISOString().slice(0, 10) || s.last === y; $('streak').textContent = `🔥 ${alive ? s.days : 0} ${(alive ? s.days : 0) === 1 ? 'Tag' : 'Tage'}`; }
+function pfadHit() {
+  pfad.hits[target] = (pfad.hits[target] || 0) + 1; markPracticed();
+  const L = LEVELS[Math.min(pfad.level, LEVELS.length - 1)];
+  if (L.c.every(c => (pfad.hits[c] || 0) >= NEED) && pfad.level < LEVELS.length - 1) { pfad.level++; pfad.hits = {}; say('🎉 ' + L.t + ' geschafft! Weiter mit ' + LEVELS[pfad.level].t + '.'); }
+  store.set('pfad', pfad); $('target').classList.add('ok-flash'); hold = -999; setTimeout(newTarget, 1100);
 }
-function diagram(shape) { // six strings, low E left; frets 1-4 (F is a barre at fret 1)
-  const xs = [20, 44, 68, 92, 116, 140]; let s = `<svg viewBox="0 0 160 170" role="img" aria-label="Griffbild ${shape}"><rect x="18" y="28" width="124" height="5" fill="currentColor"/>`;
-  for (let f = 1; f <= 4; f++) s += `<line x1="20" x2="140" y1="${30 + f * 32}" y2="${30 + f * 32}" stroke="var(--line)" stroke-width="2"/>`;
-  xs.forEach(x => s += `<line x1="${x}" x2="${x}" y1="30" y2="158" stroke="var(--string)" stroke-width="2"/>`);
-  [...shape].forEach((c, i) => {
-    if (c === 'x') s += `<text x="${xs[i]}" y="20" text-anchor="middle" font-size="14" fill="var(--muted)">x</text>`;
-    else if (c === '0') s += `<circle cx="${xs[i]}" cy="15" r="5" fill="none" stroke="var(--muted)" stroke-width="2"/>`;
-    else s += `<circle cx="${xs[i]}" cy="${30 + (+c) * 32 - 16}" r="10" fill="var(--accent)"/>`;
-  });
-  return s + '</svg>';
-}
-newTask();
+$('nextBtn').onclick = newTarget;
+$('hearTarget').onclick = () => strum(target, audio().currentTime + 0.05);
 
-// ---- offer the app as a file, so the microphone works in a normal browser
+let noteTarget = null, noteScore = 0;
+function newNoteTask() { const pool = ['C', 'D', 'E', 'F', 'G', 'A', 'H']; let t; do t = pool[Math.floor(Math.random() * 7)]; while (t === noteTarget); noteTarget = t; hold = 0; $('noteTarget').textContent = t; $('noteTarget').classList.remove('ok-flash'); }
+$('noteNext').onclick = newNoteTask;
+
+function practiceTick() {
+  if (learnMode === 'pfad' && target) {
+    $('heard').textContent = 'Ich höre: ' + (lastChord || '–');
+    hold = lastChord === target ? hold + 1 : Math.min(hold, 0); if (hold > 20) pfadHit();
+  } else if (learnMode === 'note') {
+    $('noteHeard').textContent = 'Ich höre: ' + (lastPitch ? noteLabel(lastPitch.midi) : '–');
+    hold = lastPitch && lastPitch.name === noteTarget ? hold + 1 : Math.min(hold, 0);
+    if (hold > 12) { noteScore++; markPracticed(); $('noteScore').textContent = noteScore + ' richtig'; $('noteTarget').classList.add('ok-flash'); hold = -999; setTimeout(newNoteTask, 900); }
+  } else if (learnMode === 'mit' && mit.on && mit.cur >= 0 && lastChord === mit.prog[mit.cur][0]) mit.heard[mit.change] = (mit.heard[mit.change] || 0) + 1;
+}
+
+// ---------- songs (traditional songs and common progressions; chords only)
+const SONGS = [
+  { t: 'Erste Wechsel: Em ↔ Am', key: 'E-Moll', meter: 4, bpm: 70, prog: [['Em', 4], ['Am', 4]] },
+  { t: 'Erste Wechsel: D ↔ A', key: 'D-Dur', meter: 4, bpm: 70, prog: [['D', 4], ['A', 4]] },
+  { t: 'Lagerfeuer: G – C – D', key: 'G-Dur', meter: 4, bpm: 80, prog: [['G', 4], ['C', 4], ['D', 4], ['G', 4]] },
+  { t: 'Pop-Folge (I–V–vi–IV)', key: 'G-Dur', meter: 4, bpm: 90, prog: [['G', 4], ['D', 4], ['Em', 4], ['C', 4]] },
+  { t: 'Doo-Wop-Folge', key: 'C-Dur', meter: 4, bpm: 85, prog: [['C', 4], ['Am', 4], ['F', 4], ['G', 4]] },
+  { t: 'Andalusische Kadenz', key: 'A-Moll', meter: 4, bpm: 90, prog: [['Am', 4], ['G', 4], ['F', 4], ['E', 4]] },
+  { t: '12-Takt-Blues in A', key: 'A-Dur', meter: 4, bpm: 90, prog: [['A7', 16], ['D7', 8], ['A7', 8], ['E7', 4], ['D7', 4], ['A7', 4], ['E7', 4]] },
+  { t: 'Happy Birthday', key: 'G-Dur', meter: 3, bpm: 100, prog: [['G', 3], ['D', 6], ['G', 6], ['C', 3], ['G', 3], ['D', 3], ['G', 3]] },
+  { t: 'Kumbaya (traditionell)', key: 'C-Dur', meter: 4, bpm: 80, prog: [['C', 4], ['F', 4], ['C', 12], ['F', 4], ['G', 8], ['C', 4], ['F', 4], ['C', 4], ['F', 4], ['C', 4], ['G', 4], ['C', 8]] },
+  { t: 'When the Saints (traditionell)', key: 'G-Dur', meter: 4, bpm: 110, prog: [['G', 24], ['D', 8], ['G', 8], ['C', 8], ['G', 4], ['D', 4], ['G', 8]] },
+  { t: 'Amazing Grace (traditionell)', key: 'G-Dur', meter: 3, bpm: 80, prog: [['G', 6], ['C', 3], ['G', 9], ['D', 6], ['G', 6], ['C', 3], ['G', 6], ['D', 3], ['G', 6]] },
+  { t: 'House of the Rising Sun (traditionell)', key: 'A-Moll', meter: 6, bpm: 160, prog: [['Am', 6], ['C', 6], ['D', 6], ['F', 6], ['Am', 6], ['C', 6], ['E', 12], ['Am', 6], ['C', 6], ['D', 6], ['F', 6], ['Am', 6], ['E', 6], ['Am', 6], ['E', 6]] }];
+$('songSel').innerHTML = SONGS.map((s, i) => `<option value="${i}">${s.t}</option>`).join('');
+$('songGrid').innerHTML = SONGS.map((s, i) => `<div class="card song"><div class="t">${s.t}</div><div class="sub">${s.key} · ${s.meter === 6 ? '6/8' : s.meter + '/4'}</div><div class="sub">${s.prog.map(p => p[0]).join(' – ')}</div><div class="row"><button class="btn small" data-play="${i}">Mitspielen</button><button class="btn ghost small" data-hear="${i}">▶ Anhören</button></div></div>`).join('');
+$('songGrid').querySelectorAll('[data-play]').forEach(b => b.onclick = () => { $('songSel').value = b.dataset.play; $('learnMode').value = 'mit'; $('learnMode').onchange({ target: $('learnMode') }); selectSong(); showPanel('ueben'); });
+$('songGrid').querySelectorAll('[data-hear]').forEach(b => b.onclick = () => { stopAll(); const s = SONGS[b.dataset.hear], beat = 60 / s.bpm; let t = audio().currentTime + 0.1; s.prog.forEach(([c, n]) => { for (let k = 0; k < n; k += s.meter === 6 ? 3 : 2) strum(c, t + k * beat, 0.5); t += n * beat; }); });
+
+// ---------- play-along + metronome (look-ahead scheduler)
+const mit = { on: false, song: null, prog: [], beat: 0, next: 0, timer: null, cur: -1, change: 0, heard: {}, queue: [], metroOnly: false };
+$('bpm').oninput = () => $('bpmVal').textContent = $('bpm').value;
+$('songSel').onchange = selectSong;
+function selectSong() { const s = SONGS[$('songSel').value]; $('bpm').value = s.bpm; $('bpmVal').textContent = s.bpm; $('mitProg').innerHTML = s.prog.map((p, i) => `<span class="c" id="mp${i}">${p[0]}</span>`).join(''); }
+selectSong();
+function chordAt(b) { let n = ((b % mit.total) + mit.total) % mit.total; for (let i = 0; i < mit.prog.length; i++) { if (n < mit.prog[i][1]) return { i, first: n === 0 }; n -= mit.prog[i][1]; } return { i: 0, first: true }; }
+function startMit(metroOnly) {
+  stopMit(); const a = audio(), s = SONGS[$('songSel').value];
+  Object.assign(mit, { on: true, metroOnly, song: s, prog: s.prog, total: s.prog.reduce((x, p) => x + p[1], 0), beat: metroOnly ? 0 : -s.meter, next: a.currentTime + 0.12, cur: -1, change: 0, heard: {}, queue: [] });
+  mit.timer = setInterval(schedule, 25); requestAnimationFrame(mitUi);
+  $('mitStart').textContent = metroOnly ? '▶ Start' : '■ Stopp'; $('metroBtn').textContent = metroOnly ? '■ Metronom aus' : 'Nur Metronom'; markPracticed();
+}
+function stopMit() { if (mit.timer) clearInterval(mit.timer); mit.on = false; mit.timer = null; $('mitStart').textContent = '▶ Start'; $('metroBtn').textContent = 'Nur Metronom'; }
+function schedule() {
+  const meter = mit.song.meter === 6 ? 3 : mit.song.meter, beatLen = 60 / +$('bpm').value;
+  while (mit.next < ctx.currentTime + 0.12) {
+    const b = mit.beat; click(mit.next, ((b % meter) + meter) % meter === 0);
+    if (!mit.metroOnly && b >= 0) { const c = chordAt(b); if (c.first && $('accomp').checked) strum(mit.prog[c.i][0], mit.next, 0.45); mit.queue.push({ t: mit.next, b, ...c }); }
+    else mit.queue.push({ t: mit.next, b });
+    mit.next += beatLen; mit.beat++;
+  }
+}
+function mitUi() {
+  if (!mit.on) return;
+  while (mit.queue.length && mit.queue[0].t <= ctx.currentTime) {
+    const q = mit.queue.shift(), meter = mit.song.meter === 6 ? 3 : mit.song.meter;
+    $('beatInfo').textContent = q.b < 0 ? `Vorzählen: ${q.b + meter + 1}` : `Schlag ${((q.b % meter) + meter) % meter + 1} von ${meter}`;
+    if (!mit.metroOnly && q.i != null && (q.first || mit.cur < 0)) {
+      if (mit.cur >= 0) mit.change++;
+      mit.cur = q.i; const ch = mit.prog[q.i][0], nx = mit.prog[(q.i + 1) % mit.prog.length][0];
+      $('mitNow').textContent = ch; $('mitNext').textContent = 'Danach: ' + nx; $('mitDg').innerHTML = diagram(ch, 'lg');
+      document.querySelectorAll('#mitProg .c').forEach((el, i) => el.classList.toggle('now', i === q.i));
+      if (running) { const done = Object.keys(mit.heard).length; $('mitScore').textContent = `Treffer: ${done} von ${mit.change} Wechseln`; }
+    }
+  }
+  requestAnimationFrame(mitUi);
+}
+$('mitStart').onclick = () => mit.on && !mit.metroOnly ? stopMit() : startMit(false);
+$('metroBtn').onclick = () => mit.on && mit.metroOnly ? stopMit() : startMit(true);
+
+newTarget(); showStreak();
+
+// ---------- offer the app as a file (artifact viewer only)
 (async () => {
   const downloads = await window.claude?.use?.('downloads');
   if (!downloads) return;
