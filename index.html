@@ -77,6 +77,8 @@ input[type=range]{accent-color:var(--accent)}
 .note{font-size:.88rem;color:var(--muted);margin:0;max-width:70ch}
 .idea{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:10px}
 .idea:first-child{border-top:0;padding-top:0}
+button.c{cursor:pointer;color:var(--fg);font:inherit;font-family:var(--f-display);font-weight:800;font-size:1.5rem}
+#spSeek{width:100%}
 [hidden]{display:none!important}
 @media (prefers-reduced-motion: reduce){.meter .needle{transition:none}}
 </style>
@@ -84,7 +86,7 @@ input[type=range]{accent-color:var(--accent)}
 <div class="wrap">
   <header>
     <h1>Gitarrenohr</h1>
-    <p>Summ, sing oder spiel deine Idee vor. Du bekommst Noten, Gitarren-Tabs und passende Akkorde und kannst alles anhören, speichern und üben.</p>
+    <p>Summ, sing oder spiel deine Idee vor, oder lade einen Song und zerlege ihn. Du bekommst Noten, Gitarren-Tabs und Akkorde und kannst alles anhören, speichern und üben.</p>
   </header>
 
   <div class="bar">
@@ -98,6 +100,7 @@ input[type=range]{accent-color:var(--accent)}
 
   <div class="tabs" role="tablist">
     <button class="tab" role="tab" aria-selected="true" data-p="idee">Idee → Tabs</button>
+    <button class="tab" role="tab" aria-selected="false" data-p="song">Song zerlegen</button>
     <button class="tab" role="tab" aria-selected="false" data-p="hoeren">Hören</button>
     <button class="tab" role="tab" aria-selected="false" data-p="stimmen">Stimmen</button>
     <button class="tab" role="tab" aria-selected="false" data-p="ueben">Üben</button>
@@ -222,6 +225,46 @@ input[type=range]{accent-color:var(--accent)}
   <section class="panel" id="p-lieder" hidden>
     <p class="note">Traditionelle Lieder und typische Akkordfolgen zum Mitspielen. Tipp auf „Mitspielen“, dann läuft die Folge im Takt mit Metronom und Begleitung.</p>
     <div class="grid" id="songGrid"></div>
+  </section>
+
+  <!-- Song zerlegen: stems, chords over time, melody from vocals -->
+  <section class="panel" id="p-song" hidden>
+    <div class="card">
+      <h2>Song zerlegen</h2>
+      <p class="note">Lade einen Song, den du besitzt: gekauftes MP3, M4A, WAV oder eigene Aufnahme. Die App trennt Gesang, Begleitung und Bass, zeigt die Akkorde im Zeitverlauf und macht aus dem Gesang Melodie-Tabs. Alles läuft auf deinem Gerät, nichts wird hochgeladen.</p>
+      <div class="row"><label class="file">🎵 Song-Datei wählen<input type="file" id="songIn" accept="audio/*"></label></div>
+      <div class="lvl" id="songProg" hidden><i id="songProgFill"></i></div>
+      <div class="sub" id="songInfo"></div>
+    </div>
+    <div id="songUi" class="panel" hidden>
+      <div class="card">
+        <div class="row">
+          <button class="btn" id="spPlay">▶ Abspielen</button>
+          <span class="sub" id="spTime">0:00 / 0:00</span>
+          <label>Tempo <select id="spRate"><option value="1">100 %</option><option value="0.85">85 %</option><option value="0.7">70 %</option><option value="0.5">50 %</option></select></label>
+        </div>
+        <input type="range" id="spSeek" min="0" max="1000" value="0" aria-label="Position im Song">
+        <div id="stemRows" class="panel"></div>
+      </div>
+      <div class="card center">
+        <div class="sub">Akkord jetzt</div>
+        <div class="big" id="spChord">–</div>
+        <div class="sub" id="spNext">Danach: –</div>
+        <div class="dg lg" id="spDg"></div>
+        <div class="sub" id="spStrum"></div>
+      </div>
+      <div class="card">
+        <h2>Akkordfolge</h2>
+        <p class="note">Tipp auf einen Akkord, um dorthin zu springen.</p>
+        <div class="prog" id="spChords"></div>
+      </div>
+      <div class="card">
+        <h2>Melodie aus dem Gesang</h2>
+        <div class="sub" id="spMelInfo"></div>
+        <div class="row"><button class="btn small" id="spMel">Melodie ab hier (20 s) als Tabs</button></div>
+      </div>
+    </div>
+    <p class="note">Ehrlich zur Qualität: Die Trennung nutzt, dass Gesang meist in der Mitte des Stereobilds liegt (Mitte/Seiten-Verfahren, keine KI). Instrumente, die auch in der Mitte liegen, etwa Snare oder Bass, bleiben teils im Gesang hörbar. Mono-Aufnahmen lassen sich nicht trennen. Langsameres Tempo macht den Song auch tiefer.</p>
   </section>
 
   <!-- Gespeichert -->
@@ -449,7 +492,90 @@ const GuitarCore = (() => {
   const lenSym = l => SYM[l] || l + '/8';
   return { OPEN, STRINGS, SHAPES, parseChord, chordShape, voicing, rhythm, tabify, tabText, lenSym };
 })();
-if (typeof module !== 'undefined') module.exports = { Core, GuitarCore };
+
+// ---- song splitting: center/side spectral masking (vocals sit in the middle of a stereo mix)
+const StemCore = (() => {
+  function fft(re, im, inv) { // in place, radix-2
+    const n = re.length;
+    for (let i = 1, j = 0; i < n; i++) { let bit = n >> 1; for (; j & bit; bit >>= 1) j ^= bit; j ^= bit; if (i < j) { [re[i], re[j]] = [re[j], re[i]]; [im[i], im[j]] = [im[j], im[i]]; } }
+    for (let len = 2; len <= n; len <<= 1) {
+      const ang = (inv ? 2 : -2) * Math.PI / len, wr = Math.cos(ang), wi = Math.sin(ang);
+      for (let i = 0; i < n; i += len) { let cr = 1, ci = 0;
+        for (let k = 0; k < len / 2; k++) {
+          const a = i + k, b = a + len / 2, tr = re[b] * cr - im[b] * ci, ti = re[b] * ci + im[b] * cr;
+          re[b] = re[a] - tr; im[b] = im[a] - ti; re[a] += tr; im[a] += ti;
+          const nr = cr * wr - ci * wi; ci = cr * wi + ci * wr; cr = nr; } } }
+    if (inv) for (let i = 0; i < n; i++) { re[i] /= n; im[i] /= n; }
+  }
+
+  // Splits a stereo mix into vocals (mono), band = accompaniment without bass (stereo), bass (mono).
+  // shortcut: center/side masking, not an AI model; centered instruments leak into the vocals.
+  function Separator(L, R, sr, N = 2048) {
+    const hop = N / 4, len = L.length, frames = Math.ceil(len / hop) + 1;
+    const win = Float32Array.from({ length: N }, (_, i) => 0.5 - 0.5 * Math.cos(2 * Math.PI * i / N));
+    const out = { vocals: new Float32Array(len), bandL: new Float32Array(len), bandR: new Float32Array(len), bass: new Float32Array(len) };
+    const band = new Float32Array(N / 2 + 1), low = new Float32Array(N / 2 + 1);
+    for (let k = 0; k <= N / 2; k++) { const f = k * sr / N;
+      band[k] = Math.min(1, Math.max(0, (f - 100) / 80)) * Math.min(1, Math.max(0, (9000 - f) / 2000)); // where voices live
+      low[k] = Math.min(1, Math.max(0, (180 - f) / 60)); }                                               // bass range
+    const bufs = Array.from({ length: 8 }, () => new Float64Array(N));
+    let fr = 0;
+    this.step = maxFrames => {
+      const [lr, li, rr, ri, vr, vi, br, bi] = bufs, end = Math.min(frames, fr + maxFrames);
+      for (; fr < end; fr++) {
+        const s = fr * hop - N / 2;
+        for (let i = 0; i < N; i++) { const j = s + i, w = win[i]; lr[i] = j >= 0 && j < len ? L[j] * w : 0; rr[i] = j >= 0 && j < len ? R[j] * w : 0; li[i] = ri[i] = 0; }
+        fft(lr, li, false); fft(rr, ri, false);
+        for (let k = 0; k <= N / 2; k++) {
+          const dr = lr[k] - rr[k], di = li[k] - ri[k], mag = Math.hypot(lr[k], li[k]) + Math.hypot(rr[k], ri[k]) + 1e-12;
+          const c = 1 - Math.hypot(dr, di) / mag, g = c * c * c * band[k];              // how centered this bin is
+          const mr = (lr[k] + rr[k]) / 2, mi = (li[k] + ri[k]) / 2;
+          vr[k] = mr * g; vi[k] = mi * g;
+          lr[k] -= vr[k]; li[k] -= vi[k]; rr[k] -= vr[k]; ri[k] -= vi[k];
+          br[k] = (lr[k] + rr[k]) / 2 * low[k]; bi[k] = (li[k] + ri[k]) / 2 * low[k];
+          lr[k] -= br[k]; li[k] -= bi[k]; rr[k] -= br[k]; ri[k] -= bi[k];
+          if (k > 0 && k < N / 2) for (const [re, im] of [[lr, li], [rr, ri], [vr, vi], [br, bi]]) { re[N - k] = re[k]; im[N - k] = -im[k]; } // keep spectra symmetric -> real output
+        }
+        for (const [re, im, dst] of [[vr, vi, out.vocals], [lr, li, out.bandL], [rr, ri, out.bandR], [br, bi, out.bass]]) {
+          fft(re, im, true);
+          for (let i = 0; i < N; i++) { const j = s + i; if (j >= 0 && j < len) dst[j] += re[i] * win[i] / 1.5; } // Hann² at 75 % overlap sums to 1.5
+        }
+      }
+      return fr / frames;
+    };
+    this.result = () => out;
+  }
+
+  // chords over time from a mono signal -> [{start, end, name}]
+  function chordTimeline(x, sr) {
+    const step = Math.round(sr / 2), raw = [];
+    for (let i = 0; i + 8192 <= x.length; i += step) { const r = Core.detectChord(Core.chroma(x.subarray(i, i + 8192), sr)); raw.push(r && r.best.score > 0.72 ? r.best.name : null); }
+    const sm = raw.map((c, i) => { const w = raw.slice(Math.max(0, i - 1), i + 2).filter(Boolean), cnt = {}; w.forEach(n => cnt[n] = (cnt[n] || 0) + 1); const top = Object.entries(cnt).sort((a, b) => b[1] - a[1])[0]; return top && top[1] >= 2 ? top[0] : c; });
+    const segs = [];
+    sm.forEach((c, i) => { const t = i * step / sr; if (!c) return; const last = segs.at(-1); if (last && last.name === c && t - last.end < 1.1) last.end = t + 0.5; else segs.push({ start: t, end: t + 0.5, name: c }); });
+    return segs.filter(s => s.end - s.start >= 1 || segs.length < 3).reduce((a, s) => { const l = a.at(-1); if (l && l.name === s.name) l.end = s.end; else a.push({ ...s }); return a; }, []);
+  }
+
+  // tempo from the onset envelope via autocorrelation, 70-160 BPM
+  function tempo(x, sr) {
+    const hop = 512, env = [];
+    let prev = 0; for (let i = 0; i + hop <= x.length; i += hop) { let e = 0; for (let j = i; j < i + hop; j++) e += x[j] * x[j]; e = Math.sqrt(e / hop); env.push(Math.max(0, e - prev)); prev = e; }
+    const fps = sr / hop; let best = 0, bpm = 100;
+    for (let b = 70; b <= 160; b++) { const lag = Math.round(fps * 60 / b); let s = 0; for (let i = lag; i < env.length; i++) s += env[i] * env[i - lag]; s /= env.length - lag; if (s > best) { best = s; bpm = b; } }
+    return bpm;
+  }
+
+  function wav(channels, sr) { // 16-bit PCM
+    const n = channels[0].length, ch = channels.length, buf = new ArrayBuffer(44 + n * ch * 2), v = new DataView(buf);
+    const str = (o, s) => [...s].forEach((c, i) => v.setUint8(o + i, c.charCodeAt(0)));
+    str(0, 'RIFF'); v.setUint32(4, 36 + n * ch * 2, true); str(8, 'WAVEfmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, ch, true);
+    v.setUint32(24, sr, true); v.setUint32(28, sr * ch * 2, true); v.setUint16(32, ch * 2, true); v.setUint16(34, 16, true); str(36, 'data'); v.setUint32(40, n * ch * 2, true);
+    for (let i = 0, o = 44; i < n; i++) for (let c = 0; c < ch; c++, o += 2) v.setInt16(o, Math.max(-1, Math.min(1, channels[c][i])) * 32767, true);
+    return new Blob([buf], { type: 'audio/wav' });
+  }
+  return { fft, Separator, chordTimeline, tempo, wav };
+})();
+if (typeof module !== 'undefined') module.exports = { Core, GuitarCore, StemCore };
 /*CORE-END*/
 </script>
 
@@ -469,7 +595,7 @@ document.querySelectorAll('.tab').forEach(t => t.onclick = () => showPanel(t.dat
 function showPanel(p) {
   panel = p;
   document.querySelectorAll('.tab').forEach(x => x.setAttribute('aria-selected', x.dataset.p === p));
-  ['idee', 'hoeren', 'stimmen', 'ueben', 'lieder', 'gespeichert'].forEach(x => $('p-' + x).hidden = x !== p);
+  ['idee', 'song', 'hoeren', 'stimmen', 'ueben', 'lieder', 'gespeichert'].forEach(x => $('p-' + x).hidden = x !== p);
   if (p === 'gespeichert') renderIdeas();
 }
 
@@ -786,11 +912,87 @@ function mitUi() {
 $('mitStart').onclick = () => mit.on && !mit.metroOnly ? stopMit() : startMit(false);
 $('metroBtn').onclick = () => mit.on && mit.metroOnly ? stopMit() : startMit(true);
 
+
+// ---------- song splitting player
+const song = { sr: 0, len: 0, bufs: null, chords: [], vocalNotes: [], srcs: [], gains: {}, playing: false, offset: 0, startAt: 0, rate: 1, shown: null };
+const STEMS = [['vocals', 'Gesang'], ['band', 'Begleitung'], ['bass', 'Bass']];
+const fmtT = s => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');
+$('stemRows').innerHTML = STEMS.map(([k, n]) => `<div class="row"><label><input type="checkbox" id="on-${k}" checked> <b style="min-width:7ch">${n}</b></label><input type="range" id="vol-${k}" min="0" max="150" value="100" aria-label="Lautstärke ${n}"><button class="btn ghost small" data-dl="${k}">⬇ WAV</button></div>`).join('');
+STEMS.forEach(([k]) => { $('on-' + k).onchange = $('vol-' + k).oninput = () => applyGains(); });
+function applyGains() { STEMS.forEach(([k]) => song.gains[k] && (song.gains[k].gain.value = $('on-' + k).checked ? $('vol-' + k).value / 100 : 0)); }
+const dlP = window.claude?.use?.('downloads') ?? Promise.resolve(null);
+async function saveBlob(blob, filename) {
+  const d = await dlP;
+  if (d) return d.save({ filename, data: blob }).catch(() => say('Download abgebrochen.'));
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
+document.querySelectorAll('[data-dl]').forEach(b => b.onclick = () => {
+  if (!song.bufs) return; const buf = song.bufs[b.dataset.dl];
+  saveBlob(StemCore.wav(Array.from({ length: buf.numberOfChannels }, (_, c) => buf.getChannelData(c)), buf.sampleRate), `${song.name}-${b.dataset.dl}.wav`);
+});
+
+$('songIn').onchange = async e => {
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  songStop(); $('songUi').hidden = true; $('songProg').hidden = false; $('songProgFill').style.width = '0%';
+  try {
+    $('songInfo').textContent = 'Lade „' + f.name + '“ …';
+    const ab = await audio().decodeAudioData(await f.arrayBuffer());
+    let L = ab.getChannelData(0), R = ab.numberOfChannels > 1 ? ab.getChannelData(1) : L, sr = ab.sampleRate;
+    while (sr > 24000) { L = Core.decimate2(L); R = Core.decimate2(R); sr /= 2; }
+    const maxLen = sr * 480; if (L.length > maxLen) { L = L.subarray(0, maxLen); R = R.subarray(0, maxLen); }
+    const sep = new StemCore.Separator(L, R, sr); let p = 0;
+    while (p < 1) { p = sep.step(40); $('songProgFill').style.width = (p * 90).toFixed(1) + '%'; $('songInfo').textContent = `Trenne Gesang, Begleitung und Bass … ${Math.round(p * 100)} %`; await new Promise(r => setTimeout(r, 0)); }
+    const o = sep.result(), mk = chs => { const b = ctx.createBuffer(chs.length, chs[0].length, sr); chs.forEach((c, i) => b.copyToChannel(c, i)); return b; };
+    song.bufs = { vocals: mk([o.vocals]), band: mk([o.bandL, o.bandR]), bass: mk([o.bass]) };
+    song.sr = sr; song.len = L.length / sr; song.name = f.name.replace(/\.[^.]+$/, '');
+    $('songInfo').textContent = 'Erkenne Akkorde und Melodie …'; await new Promise(r => setTimeout(r, 0));
+    const inst = o.bandL.map((v, i) => (v + o.bandR[i]) / 2 + o.bass[i]);
+    song.chords = StemCore.chordTimeline(inst, sr); const bpm = StemCore.tempo(inst, sr);
+    const frames = []; for (let i = 0; i + 2048 <= o.vocals.length; i += 512) { const pp = Core.detectPitch(o.vocals.subarray(i, i + 2048), sr); frames.push({ t: i / sr, midi: pp && pp.clarity > 0.75 ? Core.noteOf(pp.freq).midi : null }); }
+    song.vocalNotes = Core.toNotes(frames, 0.12);
+    $('songProgFill').style.width = '100%'; $('songProg').hidden = true;
+    $('songInfo').textContent = `„${song.name}“ · ${fmtT(song.len)} · ca. ${bpm} BPM · ${new Set(song.chords.map(c => c.name)).size} verschiedene Akkorde${ab.numberOfChannels < 2 ? ' · Achtung: Mono-Datei, Trennung nicht möglich' : ''}`;
+    $('spStrum').textContent = `Anschlag-Vorschlag bei ${bpm} BPM: ` + (bpm < 95 ? '↓ ↓ ↑ ↑ ↓ ↑ (Folk-Muster)' : '↓ ↑ ↓ ↑ ↓ ↑ ↓ ↑ (Achtel, locker aus dem Handgelenk)');
+    $('spChords').innerHTML = song.chords.map((c, i) => `<button class="c" id="sp${i}" data-t="${c.start}" title="${fmtT(c.start)}">${c.name}</button>`).join('') || '<span class="sub">Keine klaren Akkorde erkannt.</span>';
+    $('spChords').querySelectorAll('[data-t]').forEach(b => b.onclick = () => songSeek(+b.dataset.t));
+    $('spMelInfo').textContent = `${song.vocalNotes.length} Gesangstöne erkannt. Spul an die Stelle, die du lernen willst, und öffne sie als Tabs.`;
+    song.offset = 0; song.shown = null; $('songUi').hidden = false; songUi();
+  } catch (err) { $('songProg').hidden = true; $('songInfo').textContent = 'Die Datei ließ sich nicht verarbeiten. Probier MP3, M4A oder WAV.'; }
+};
+const songPos = () => song.playing ? Math.min(song.len, song.offset + (ctx.currentTime - song.startAt) * song.rate) : song.offset;
+function songStart() {
+  const a = audio(); song.srcs = []; song.rate = +$('spRate').value;
+  STEMS.forEach(([k]) => { const s = a.createBufferSource(), g = a.createGain(); s.buffer = song.bufs[k]; s.playbackRate.value = song.rate; s.connect(g); g.connect(a.destination); s.start(0, song.offset); song.srcs.push(s); song.gains[k] = g; });
+  applyGains(); song.startAt = a.currentTime; song.playing = true; $('spPlay').textContent = '❚❚ Pause'; requestAnimationFrame(songUi);
+}
+function songStop() { if (song.playing) song.offset = songPos(); song.srcs.forEach(s => { try { s.stop(); } catch (e) {} }); song.srcs = []; song.playing = false; $('spPlay').textContent = '▶ Abspielen'; }
+function songSeek(t) { const was = song.playing; songStop(); song.offset = Math.max(0, Math.min(song.len - 0.1, t)); if (was) songStart(); else songUi(); }
+$('spPlay').onclick = () => song.playing ? songStop() : (song.offset >= song.len - 0.2 && (song.offset = 0), songStart());
+$('spSeek').oninput = e => songSeek(e.target.value / 1000 * song.len);
+$('spRate').onchange = () => { if (song.playing) { songStop(); songStart(); } };
+function songUi() {
+  const t = songPos();
+  $('spTime').textContent = `${fmtT(t)} / ${fmtT(song.len)}`; $('spSeek').value = Math.round(t / song.len * 1000);
+  const i = song.chords.findIndex(c => t >= c.start && t < c.end), cur = i >= 0 ? song.chords[i] : null;
+  if ((cur && cur.name) !== song.shown) {
+    song.shown = cur && cur.name; $('spChord').textContent = cur ? cur.name : '–'; $('spDg').innerHTML = cur ? diagram(cur.name, 'lg') : '';
+    const nx = song.chords.find(c => c.start > t); $('spNext').textContent = 'Danach: ' + (nx ? nx.name : '–');
+  }
+  document.querySelectorAll('#spChords .c').forEach((el, j) => el.classList.toggle('now', j === i));
+  if (song.playing && t >= song.len - 0.05) { songStop(); song.offset = 0; }
+  if (song.playing) requestAnimationFrame(songUi);
+}
+$('spMel').onclick = () => {
+  const t = songPos(), notes = song.vocalNotes.filter(n => n.start >= t && n.start < t + 20).map(n => ({ ...n, start: n.start - t }));
+  if (!notes.length) { say('An dieser Stelle wurde kein Gesang erkannt. Spul zu einer Stelle mit Gesang.', true); return; }
+  songStop(); setIdea(notes, `${song.name} ab ${fmtT(t)}`); showPanel('idee'); say('Melodie geöffnet. Tabs, Akkorde und Abspielen findest du hier.');
+};
+
 newTarget(); showStreak();
 
 // ---------- offer the app as a file (artifact viewer only)
 (async () => {
-  const downloads = await window.claude?.use?.('downloads');
+  const downloads = await dlP;
   if (!downloads) return;
   $('saveBtn').hidden = false;
   $('saveBtn').onclick = () => downloads.save({ filename: 'gitarrenohr.html', data: '<!doctype html>\n' + document.documentElement.outerHTML }).catch(() => say('Download abgebrochen.'));
