@@ -58,6 +58,8 @@ select{background:var(--surface);border:1px solid var(--line);border-radius:8px;
 .score{font-family:var(--f-display);font-size:1.6rem;font-weight:800}
 .ok-flash{color:var(--good)}
 .note{font-size:.88rem;color:var(--muted);margin:0;max-width:70ch}
+.lvl{height:8px;border-radius:4px;background:var(--line);overflow:hidden;max-width:420px}
+.lvl i{display:block;height:100%;width:0;background:var(--good)}
 [hidden]{display:none!important}
 @media (prefers-reduced-motion: reduce){.meter .needle{transition:none}}
 </style>
@@ -74,6 +76,7 @@ select{background:var(--surface);border:1px solid var(--line);border-radius:8px;
     <label class="file" id="fileLbl">📁 Aufnahme laden (MP3, M4A, WAV)<input type="file" id="fileIn" accept="audio/*"></label>
     <button class="btn ghost" id="saveBtn" hidden>App herunterladen</button>
   </div>
+  <div class="lvl" id="level" hidden title="Mikrofon-Pegel"><i id="lvlFill"></i></div>
   <div class="status" id="status" role="status">Starte das Mikrofon oder lade eine Aufnahme.</div>
 
   <div class="tabs" role="tablist">
@@ -147,14 +150,14 @@ const Core = (() => {
   function detectPitch(buf, sr) {
     const N = buf.length, W = N >> 1;
     let rms = 0; for (let i = 0; i < N; i++) rms += buf[i] * buf[i]; rms = Math.sqrt(rms / N);
-    if (rms < 0.01) return null;
+    if (rms < 0.002) return null; // phone mics are quiet; YIN's own check rejects noise
     const minTau = Math.max(2, Math.floor(sr / 1200)), maxTau = Math.min(W - 2, Math.floor(sr / 60));
     const d = new Float32Array(maxTau + 2);
     for (let tau = 1; tau <= maxTau + 1; tau++) { let s = 0; for (let i = 0; i < W; i++) { const v = buf[i] - buf[i + tau]; s += v * v; } d[tau] = s; }
     const c = new Float32Array(maxTau + 2); c[0] = 1; let run = 0;
     for (let tau = 1; tau <= maxTau + 1; tau++) { run += d[tau]; c[tau] = run ? d[tau] * tau / run : 1; }
     let tau = -1;
-    for (let t = minTau; t <= maxTau; t++) if (c[t] < 0.15) { while (t + 1 <= maxTau && c[t+1] < c[t]) t++; tau = t; break; }
+    for (let t = minTau; t <= maxTau; t++) if (c[t] < 0.2) { while (t + 1 <= maxTau && c[t+1] < c[t]) t++; tau = t; break; }
     if (tau < 0) return null;
     const a = c[tau-1], b = c[tau], e = c[tau+1], den = a - 2*b + e;
     const shift = den ? (a - e) / (2 * den) : 0;
@@ -295,11 +298,12 @@ let ctx, analyser, buf, running = false, chordHold = [];
 $('micBtn').onclick = async () => {
   if (running) { running = false; ctx.close(); ctx = null; $('micBtn').textContent = '🎤 Mikrofon starten'; say('Mikrofon gestoppt.'); return; }
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
-    ctx = new AudioContext(); analyser = ctx.createAnalyser(); analyser.fftSize = 16384;
+    ctx = new AudioContext(); ctx.resume(); // create + resume inside the tap, or iOS/Safari keeps it silent
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    await ctx.resume(); analyser = ctx.createAnalyser(); analyser.fftSize = 16384;
     ctx.createMediaStreamSource(stream).connect(analyser);
     buf = new Float32Array(analyser.fftSize); running = true;
-    $('micBtn').textContent = '■ Mikrofon stoppen'; say('Ich höre zu …'); loop();
+    $('micBtn').textContent = '■ Mikrofon stoppen'; say('Ich höre zu …'); $('level').hidden = false; loop();
   } catch (e) {
     say('Das Mikrofon ist hier nicht erlaubt. In der claude.ai-Vorschau ist es gesperrt. Lade die App herunter und öffne sie im Browser, oder lade unten eine Aufnahme hoch.', true);
   }
@@ -317,7 +321,9 @@ function loop() {
     if (panel === 'chord') showChord(r, c); else checkChord(r);
   }
   if (panel === 'learn' && learn.mode === 'note') checkNote(p);
-  if (humFrames) humFrames.push({ t: ctx.currentTime - humT0, midi: p && p.clarity > 0.8 ? Core.noteOf(p.freq).midi : null });
+  let rms = 0; for (let i = buf.length - 2048; i < buf.length; i++) rms += buf[i] * buf[i];
+  $('lvlFill').style.width = Math.min(100, Math.sqrt(rms / 2048) * 400) + '%'; // so you can see the mic hears you
+  if (humFrames) { const n = p && p.clarity > 0.6 ? Core.noteOf(p.freq) : null; humFrames.push({ t: ctx.currentTime - humT0, midi: n ? n.midi : null }); $('humKey').textContent = 'Aufnahme … ' + (n ? 'ich höre ' + n.name + n.octave : 'summ lauter'); }
   requestAnimationFrame(loop);
 }
 
@@ -367,7 +373,7 @@ $('fileIn').onchange = async e => {
     if (ab.numberOfChannels > 1) { const r = ab.getChannelData(1); x = x.map((v, i) => (v + r[i]) / 2); }
     while (sr > 32000) { x = Core.decimate2(x); sr /= 2; }
     const hop = 512, frames = [], chords = [];
-    for (let i = 0; i + 2048 <= x.length; i += hop) { const p = Core.detectPitch(x.subarray(i, i + 2048), sr); frames.push({ t: i / sr, midi: p && p.clarity > 0.8 ? Core.noteOf(p.freq).midi : null }); }
+    for (let i = 0; i + 2048 <= x.length; i += hop) { const p = Core.detectPitch(x.subarray(i, i + 2048), sr); frames.push({ t: i / sr, midi: p && p.clarity > 0.6 ? Core.noteOf(p.freq).midi : null }); }
     for (let i = 0; i + 8192 <= x.length; i += sr >> 1) { const r = Core.detectChord(Core.chroma(x.subarray(i, i + 8192), sr)); if (r && r.best.score > 0.75) chords.push({ t: i / sr, name: r.best.name }); }
     const notes = Core.toNotes(frames);
     $('noteList').hidden = false; $('noteList').textContent = notes.length ? notes.map(n => `${n.start.toFixed(2)} s  ${Core.name(n.midi)}${Math.floor(n.midi / 12) - 1}`).join('\n') : 'Keine Noten erkannt.';
@@ -405,7 +411,7 @@ function checkChord(r) {
   if (learn.hold > 20) success();
 }
 function checkNote(p) {
-  const h = p && p.clarity > 0.8 ? Core.noteOf(p.freq).name : null; $('heard').textContent = 'Ich höre: ' + (h || '–');
+  const h = p && p.clarity > 0.6 ? Core.noteOf(p.freq).name : null; $('heard').textContent = 'Ich höre: ' + (h || '–');
   learn.hold = h === learn.target ? learn.hold + 1 : Math.min(learn.hold, 0);
   if (learn.hold > 12) success();
 }
