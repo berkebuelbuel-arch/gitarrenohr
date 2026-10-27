@@ -1,0 +1,432 @@
+<!doctype html>
+<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"></head><body>
+<title>Gitarrenohr</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+/* Layout: one column like a pedalboard — input bar, mode tabs, one big readout, details below */
+:root{
+  --bg:#F6F0E8; --surface:#FFFFFF; --fg:#2A1F18; --muted:#7A6A5C; --line:#E3D7C8; --accent:#A86E12; --good:#2E8B6E; --warn:#B4532A; --string:#C9A15B;
+  --f-display:'Bricolage Grotesque','Helvetica Neue',Arial,sans-serif;
+  --f-body:'Atkinson Hyperlegible','Segoe UI',Arial,sans-serif;
+  --f-mono:'JetBrains Mono','DejaVu Sans Mono',Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#1B1512; --surface:#261E19; --fg:#F3EAE0; --muted:#B3A291; --line:#3A2E26; --accent:#D9A441; --good:#5FB89A; --warn:#E08A62; --string:#D9B871; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#1B1512; --surface:#261E19; --fg:#F3EAE0; --muted:#B3A291; --line:#3A2E26; --accent:#D9A441; --good:#5FB89A; --warn:#E08A62; --string:#D9B871; color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:16px;line-height:1.5}
+.wrap{max-width:860px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:24px 48px;display:flex;flex-direction:column;gap:18px}
+h1{font-family:var(--f-display);font-weight:800;font-size:clamp(1.9rem,5vw,2.6rem);margin:0;line-height:1.05}
+header p{margin:4px 0 0;color:var(--muted);max-width:60ch}
+button,select,input{font:inherit;color:var(--fg)}
+.btn{display:inline-flex;align-items:center;gap:8px;border:0;border-radius:10px;padding:10px 16px;font-weight:700;cursor:pointer;background:var(--accent);color:#1B1512}
+.btn.ghost{background:transparent;color:var(--fg);border:1px solid var(--line)}
+.btn.rec{background:var(--warn);color:#fff}
+.btn:focus-visible,.tab:focus-visible,select:focus-visible,.file:focus-within{outline:3px solid var(--accent);outline-offset:2px}
+.bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.file{display:inline-flex;align-items:center;gap:8px;border:1px dashed var(--line);border-radius:10px;padding:9px 14px;cursor:pointer}
+.file input{position:absolute;opacity:0;width:1px;height:1px}
+.status{font-size:.9rem;color:var(--muted);min-height:1.5em}
+.status.err{color:var(--warn)}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;border-bottom:1px solid var(--line)}
+.tab{background:none;border:0;border-bottom:3px solid transparent;padding:10px 12px;font-weight:700;color:var(--muted);cursor:pointer}
+.tab[aria-selected="true"]{color:var(--fg);border-color:var(--accent)}
+.panel{display:flex;flex-direction:column;gap:16px}
+.readout{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:22px 20px;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center}
+.big{font-family:var(--f-display);font-weight:800;font-size:clamp(4rem,18vw,7.5rem);line-height:1;letter-spacing:-.02em;min-height:1em}
+.sub{font-family:var(--f-mono);color:var(--muted);font-size:.95rem}
+.meter{position:relative;width:min(100%,420px);height:34px}
+.meter .scale{position:absolute;inset:15px 0 auto;height:4px;background:var(--line);border-radius:2px}
+.meter .mid{position:absolute;left:50%;top:6px;width:2px;height:22px;background:var(--good);transform:translateX(-1px)}
+.meter .needle{position:absolute;top:2px;width:6px;height:30px;border-radius:3px;background:var(--accent);left:50%;transform:translateX(-3px);transition:left .08s linear}
+.meter .needle.ok{background:var(--good)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
+.chip{font-family:var(--f-mono);font-size:.85rem;border:1px solid var(--line);border-radius:999px;padding:2px 10px;color:var(--muted)}
+.chip.on{border-color:var(--accent);color:var(--fg)}
+.prog{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.prog .c{font-family:var(--f-display);font-weight:800;font-size:clamp(1.6rem,6vw,2.4rem);background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:6px 14px;min-width:3ch}
+.list{font-family:var(--f-mono);font-size:.9rem;color:var(--muted);max-height:220px;overflow:auto;width:100%;text-align:left;border-top:1px solid var(--line);padding-top:8px}
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.row label{display:flex;gap:8px;align-items:center;color:var(--muted);font-size:.92rem}
+select{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:6px 8px}
+.trainer{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;align-items:center}
+.diagram{display:flex;justify-content:center}
+.diagram svg{width:180px;height:auto;max-width:100%}
+.score{font-family:var(--f-display);font-size:1.6rem;font-weight:800}
+.ok-flash{color:var(--good)}
+.note{font-size:.88rem;color:var(--muted);margin:0;max-width:70ch}
+[hidden]{display:none!important}
+@media (prefers-reduced-motion: reduce){.meter .needle{transition:none}}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Gitarrenohr</h1>
+    <p>Spiel eine Note oder einen Akkord, und die App sagt dir, was sie hört. Oder summ eine Melodie, und du bekommst passende Akkorde dazu.</p>
+  </header>
+
+  <div class="bar">
+    <button class="btn" id="micBtn">🎤 Mikrofon starten</button>
+    <label class="file" id="fileLbl">📁 Aufnahme laden (MP3, M4A, WAV)<input type="file" id="fileIn" accept="audio/*"></label>
+    <button class="btn ghost" id="saveBtn" hidden>App herunterladen</button>
+  </div>
+  <div class="status" id="status" role="status">Starte das Mikrofon oder lade eine Aufnahme.</div>
+
+  <div class="tabs" role="tablist">
+    <button class="tab" role="tab" id="t-note" aria-selected="true" data-p="note">Note</button>
+    <button class="tab" role="tab" id="t-chord" aria-selected="false" data-p="chord">Akkord</button>
+    <button class="tab" role="tab" id="t-hum" aria-selected="false" data-p="hum">Summen → Akkorde</button>
+    <button class="tab" role="tab" id="t-learn" aria-selected="false" data-p="learn">Üben</button>
+  </div>
+
+  <section class="panel" id="p-note" role="tabpanel" aria-labelledby="t-note">
+    <div class="readout">
+      <div class="big" id="noteBig">–</div>
+      <div class="meter" aria-hidden="true"><div class="scale"></div><div class="mid"></div><div class="needle" id="needle"></div></div>
+      <div class="sub" id="noteSub">Frequenz und Abweichung erscheinen hier</div>
+      <div class="list" id="noteList" hidden></div>
+    </div>
+    <p class="note">Die Nadel zeigt, ob du zu tief (links) oder zu hoch (rechts) bist, also auch zum Stimmen geeignet. Deutsche Notennamen: H = englisch B, B = englisch B♭.</p>
+  </section>
+
+  <section class="panel" id="p-chord" role="tabpanel" aria-labelledby="t-chord" hidden>
+    <div class="readout">
+      <div class="big" id="chordBig">–</div>
+      <div class="sub" id="chordSub">Schlag einen Akkord an und lass ihn klingen</div>
+      <div class="chips" id="pcChips"></div>
+      <div class="list" id="chordList" hidden></div>
+    </div>
+  </section>
+
+  <section class="panel" id="p-hum" role="tabpanel" aria-labelledby="t-hum" hidden>
+    <div class="row">
+      <button class="btn rec" id="recBtn">● Aufnahme starten</button>
+      <label>Akkordwechsel alle <select id="segSel"><option value="1">1 s</option><option value="1.5">1,5 s</option><option value="2" selected>2 s</option><option value="3">3 s</option><option value="4">4 s</option></select></label>
+    </div>
+    <div class="readout">
+      <div class="sub" id="humKey">Summ oder sing eine Melodie, dann stopp die Aufnahme</div>
+      <div class="prog" id="humProg"></div>
+      <div class="list" id="humNotes" hidden></div>
+    </div>
+    <p class="note">Tipp: Deutlich und ohne Text summen, „da-da-da“ geht auch. Die Akkorde sind ein Vorschlag aus der erkannten Tonart, keine einzige richtige Lösung.</p>
+  </section>
+
+  <section class="panel" id="p-learn" role="tabpanel" aria-labelledby="t-learn" hidden>
+    <div class="row">
+      <label>Übung <select id="learnMode"><option value="chord">Akkorde greifen</option><option value="note">Noten finden</option></select></label>
+      <button class="btn ghost" id="nextBtn">Nächste Aufgabe</button>
+      <span class="score" id="score">0 ✓</span>
+    </div>
+    <div class="readout">
+      <div class="trainer">
+        <div>
+          <div class="sub">Spiele:</div>
+          <div class="big" id="target">C</div>
+          <div class="sub" id="heard">Ich höre: –</div>
+        </div>
+        <div class="diagram" id="diagram"></div>
+      </div>
+    </div>
+    <p class="note">Im Akkord-Modus siehst du das Griffbild (x = Saite nicht spielen, o = leer anschlagen). Halte den Akkord kurz klingen, bis er grün wird. Das Üben braucht das Live-Mikrofon.</p>
+  </section>
+</div>
+
+<script>
+/*CORE-START*/
+// Pure audio analysis: pitch (YIN), chroma + chord templates, melody -> key -> chord progression.
+const Core = (() => {
+  const NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','B','H']; // German: B = Bb, H = B
+  const name = pc => NAMES[((pc % 12) + 12) % 12];
+
+  function decimate2(x) { const y = new Float32Array(x.length >> 1); for (let i = 0; i < y.length; i++) y[i] = (x[2*i] + x[2*i+1]) / 2; return y; }
+
+  function detectPitch(buf, sr) {
+    const N = buf.length, W = N >> 1;
+    let rms = 0; for (let i = 0; i < N; i++) rms += buf[i] * buf[i]; rms = Math.sqrt(rms / N);
+    if (rms < 0.01) return null;
+    const minTau = Math.max(2, Math.floor(sr / 1200)), maxTau = Math.min(W - 2, Math.floor(sr / 60));
+    const d = new Float32Array(maxTau + 2);
+    for (let tau = 1; tau <= maxTau + 1; tau++) { let s = 0; for (let i = 0; i < W; i++) { const v = buf[i] - buf[i + tau]; s += v * v; } d[tau] = s; }
+    const c = new Float32Array(maxTau + 2); c[0] = 1; let run = 0;
+    for (let tau = 1; tau <= maxTau + 1; tau++) { run += d[tau]; c[tau] = run ? d[tau] * tau / run : 1; }
+    let tau = -1;
+    for (let t = minTau; t <= maxTau; t++) if (c[t] < 0.15) { while (t + 1 <= maxTau && c[t+1] < c[t]) t++; tau = t; break; }
+    if (tau < 0) return null;
+    const a = c[tau-1], b = c[tau], e = c[tau+1], den = a - 2*b + e;
+    const shift = den ? (a - e) / (2 * den) : 0;
+    return { freq: sr / (tau + shift), clarity: 1 - b, rms };
+  }
+
+  function noteOf(freq) {
+    const m = 69 + 12 * Math.log2(freq / 440), midi = Math.round(m);
+    return { midi, name: name(midi), octave: Math.floor(midi / 12) - 1, cents: Math.round((m - midi) * 100) };
+  }
+
+  function fftMag(x) { // radix-2, x.length must be a power of two; returns magnitudes of the first half
+    const n = x.length, re = Float64Array.from(x, (v, i) => v * (0.5 - 0.5 * Math.cos(2 * Math.PI * i / (n - 1)))), im = new Float64Array(n);
+    for (let i = 1, j = 0; i < n; i++) { let bit = n >> 1; for (; j & bit; bit >>= 1) j ^= bit; j ^= bit; if (i < j) { [re[i], re[j]] = [re[j], re[i]]; } }
+    for (let len = 2; len <= n; len <<= 1) {
+      const ang = -2 * Math.PI / len, wr = Math.cos(ang), wi = Math.sin(ang);
+      for (let i = 0; i < n; i += len) { let cr = 1, ci = 0;
+        for (let k = 0; k < len / 2; k++) {
+          const a = i + k, b = a + len / 2, tr = re[b] * cr - im[b] * ci, ti = re[b] * ci + im[b] * cr;
+          re[b] = re[a] - tr; im[b] = im[a] - ti; re[a] += tr; im[a] += ti;
+          const nr = cr * wr - ci * wi; ci = cr * wi + ci * wr; cr = nr; } } }
+    const mag = new Float64Array(n / 2); for (let i = 0; i < n / 2; i++) mag[i] = Math.hypot(re[i], im[i]); return mag;
+  }
+
+  function chroma(frame, sr) {
+    const mag = fftMag(frame), n = frame.length, ch = new Float64Array(12);
+    let peak = 0; for (let k = 1; k < mag.length; k++) peak = Math.max(peak, mag[k]);
+    if (!peak) return null;
+    let lowest = Infinity;
+    for (let k = 2; k < mag.length - 1; k++) {
+      const f = k * sr / n; if (f < 70) continue; if (f > 2000) break;
+      const m = mag[k]; if (m < peak * 0.05 || m < mag[k-1] || m < mag[k+1]) continue; // spectral peaks only
+      const midi = 69 + 12 * Math.log2(f / 440), pc = ((Math.round(midi) % 12) + 12) % 12;
+      ch[pc] += m / (1 + f / 500); // damp upper harmonics, which add fifths and thirds
+      if (m > peak * 0.2 && f < lowest) lowest = f;
+    }
+    const mx = Math.max(...ch); if (!mx) return null;
+    return { ch: Array.from(ch, v => v / mx), bass: isFinite(lowest) ? noteOf(lowest).midi % 12 : null };
+  }
+
+  const TYPES = [['', [0,4,7]], ['m', [0,3,7]], ['7', [0,4,7,10]], ['maj7', [0,4,7,11]], ['m7', [0,3,7,10]], ['sus2', [0,2,7]], ['sus4', [0,5,7]], ['dim', [0,3,6]]];
+  function detectChord(c) {
+    if (!c) return null;
+    const v = c.ch, norm = Math.hypot(...v), out = [];
+    for (let root = 0; root < 12; root++) for (const [suf, iv] of TYPES) {
+      const t = new Array(12).fill(0); iv.forEach(i => t[(root + i) % 12] = 1);
+      let dot = 0; for (let i = 0; i < 12; i++) dot += v[i] * t[i];
+      let s = dot / (norm * Math.sqrt(iv.length)) - (iv.length > 3 ? 0.03 : 0) - (suf.startsWith('sus') || suf === 'dim' ? 0.02 : 0);
+      if (c.bass === root) s += 0.04;
+      out.push({ name: name(root) + suf, score: s });
+    }
+    out.sort((a, b) => b.score - a.score);
+    return { best: out[0], alt: out.slice(1, 3) };
+  }
+
+  // frames: [{t, midi|null}] -> notes [{midi, start, dur}]
+  function toNotes(frames, minDur = 0.09) {
+    const m = frames.map((f, i) => { if (f.midi == null) return null; // keep gaps: they separate repeated notes
+      const w = frames.slice(Math.max(0, i - 2), i + 3).map(x => x.midi).filter(x => x != null).sort((a, b) => a - b); return w.length >= 3 ? w[w.length >> 1] : null; });
+    const notes = []; let cur = null;
+    m.forEach((midi, i) => {
+      const t = frames[i].t;
+      if (cur && midi === cur.midi) { cur.end = t; return; }
+      if (cur && cur.end - cur.start >= minDur) notes.push({ midi: cur.midi, start: cur.start, dur: cur.end - cur.start });
+      cur = midi == null ? null : { midi, start: t, end: t };
+    });
+    if (cur && cur.end - cur.start >= minDur) notes.push({ midi: cur.midi, start: cur.start, dur: cur.end - cur.start });
+    return notes;
+  }
+
+  const MAJ = [6.35,2.23,3.48,2.33,4.38,4.09,2.52,5.19,2.39,3.66,2.29,2.88], MIN = [6.33,2.68,3.52,5.38,2.60,3.53,2.54,4.75,3.98,2.69,3.34,3.17];
+  function corr(a, b) { const ma = a.reduce((s, x) => s + x) / 12, mb = b.reduce((s, x) => s + x) / 12; let n = 0, da = 0, db = 0; for (let i = 0; i < 12; i++) { n += (a[i]-ma)*(b[i]-mb); da += (a[i]-ma)**2; db += (b[i]-mb)**2; } return da && db ? n / Math.sqrt(da * db) : 0; }
+  function detectKey(notes) {
+    const h = new Array(12).fill(0); notes.forEach(n => h[n.midi % 12] += n.dur);
+    // short melodies usually start and end on the tonic; histogram alone mistakes e.g. C-Dur for D-Moll
+    h[notes[0].midi % 12] += notes[0].dur * 2; h[notes.at(-1).midi % 12] += Math.max(notes.at(-1).dur, 0.3) * 6;
+    let best = null;
+    for (let k = 0; k < 12; k++) for (const [minor, prof] of [[false, MAJ], [true, MIN]]) {
+      const r = corr(h, prof.map((_, i) => prof[(i - k + 12) % 12]));
+      if (!best || r > best.r) best = { tonic: k, minor, r };
+    }
+    // C-Dur and A-Moll share all notes: let the final note pick between relative keys
+    const rel = best.minor ? { tonic: (best.tonic + 3) % 12, minor: false } : { tonic: (best.tonic + 9) % 12, minor: true };
+    if (notes.at(-1).midi % 12 === rel.tonic) best = { ...rel, r: best.r };
+    return { ...best, name: name(best.tonic) + (best.minor ? '-Moll' : '-Dur') };
+  }
+
+  function harmonize(notes, seg = 2) {
+    if (!notes.length) return { key: null, chords: [] };
+    const key = detectKey(notes), k = key.tonic;
+    // diatonic triads with a small preference for the main chords
+    const cand = key.minor
+      ? [[0,'m',0.3],[5,'m',0.2],[7,'',0.2],[8,'',0.1],[3,'',0.1],[10,'',0.05]]
+      : [[0,'',0.3],[5,'',0.2],[7,'',0.2],[9,'m',0.1],[2,'m',0.05],[4,'m',0.02]];
+    const chordsPc = cand.map(([r, q, prior]) => ({ name: name(k + r) + q, pcs: [0, q === 'm' ? 3 : 4, 7].map(i => (k + r + i) % 12), root: (k + r) % 12, prior }));
+    const t0 = notes[0].start, tEnd = notes[notes.length - 1].start + notes[notes.length - 1].dur;
+    const out = []; let prev = null;
+    for (let s = t0; s < tEnd - 0.05; s += seg) {
+      const w = new Array(12).fill(0); let total = 0, first = true;
+      for (const n of notes) {
+        const ov = Math.min(n.start + n.dur, s + seg) - Math.max(n.start, s); if (ov <= 0) continue;
+        const wt = ov * (first ? 1.5 : 1) * (n === notes.at(-1) ? 3 : 1); // final note = cadence
+        first = false; w[n.midi % 12] += wt; total += wt;
+      }
+      if (!total) { if (prev) out.push(prev); continue; }
+      let best = null;
+      for (const c of chordsPc) {
+        let sc = 0; w.forEach((x, pc) => { if (x) sc += c.pcs.includes(pc) ? x * (pc === c.root ? 1.2 : 1) : -0.4 * x; });
+        sc += total * (c.prior + (prev === c.name ? 0.05 : 0));
+        if (!best || sc > best.sc) best = { name: c.name, sc };
+      }
+      out.push(best.name); prev = best.name;
+    }
+    return { key, chords: out };
+  }
+
+  return { NAMES, name, decimate2, detectPitch, noteOf, fftMag, chroma, detectChord, toNotes, detectKey, harmonize };
+})();
+if (typeof module !== 'undefined') module.exports = Core;
+/*CORE-END*/
+</script>
+
+<script>
+const $ = id => document.getElementById(id);
+const say = (msg, err) => { $('status').textContent = msg; $('status').classList.toggle('err', !!err); };
+let panel = 'note';
+
+// ---- tabs
+document.querySelectorAll('.tab').forEach(t => t.onclick = () => {
+  panel = t.dataset.p;
+  document.querySelectorAll('.tab').forEach(x => x.setAttribute('aria-selected', x === t));
+  ['note', 'chord', 'hum', 'learn'].forEach(p => $('p-' + p).hidden = p !== panel);
+  if (panel === 'learn') newTask();
+});
+
+// ---- live microphone
+let ctx, analyser, buf, running = false, chordHold = [];
+$('micBtn').onclick = async () => {
+  if (running) { running = false; ctx.close(); ctx = null; $('micBtn').textContent = '🎤 Mikrofon starten'; say('Mikrofon gestoppt.'); return; }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
+    ctx = new AudioContext(); analyser = ctx.createAnalyser(); analyser.fftSize = 16384;
+    ctx.createMediaStreamSource(stream).connect(analyser);
+    buf = new Float32Array(analyser.fftSize); running = true;
+    $('micBtn').textContent = '■ Mikrofon stoppen'; say('Ich höre zu …'); loop();
+  } catch (e) {
+    say('Das Mikrofon ist hier nicht erlaubt. In der claude.ai-Vorschau ist es gesperrt. Lade die App herunter und öffne sie im Browser, oder lade unten eine Aufnahme hoch.', true);
+  }
+};
+
+let humFrames = null, humT0 = 0;
+function loop() {
+  if (!running) return;
+  analyser.getFloatTimeDomainData(buf);
+  const half = ctx.sampleRate > 32000, x = half ? Core.decimate2(buf) : buf, sr = half ? ctx.sampleRate / 2 : ctx.sampleRate;
+  const p = Core.detectPitch(x.subarray(x.length - 2048), sr);
+  if (panel === 'note') showNote(p);
+  if (panel === 'chord' || (panel === 'learn' && learn.mode === 'chord')) {
+    const c = Core.chroma(x.subarray(x.length - 8192), sr), r = c && p ? Core.detectChord(c) : null;
+    if (panel === 'chord') showChord(r, c); else checkChord(r);
+  }
+  if (panel === 'learn' && learn.mode === 'note') checkNote(p);
+  if (humFrames) humFrames.push({ t: ctx.currentTime - humT0, midi: p && p.clarity > 0.8 ? Core.noteOf(p.freq).midi : null });
+  requestAnimationFrame(loop);
+}
+
+function showNote(p) {
+  if (!p) { $('noteSub').textContent = 'Spiel eine Saite an …'; return; }
+  const n = Core.noteOf(p.freq);
+  $('noteBig').textContent = n.name + n.octave;
+  $('noteSub').textContent = `${p.freq.toFixed(1)} Hz · ${n.cents > 0 ? '+' : ''}${n.cents} Cent`;
+  const nd = $('needle'); nd.style.left = (50 + n.cents) + '%'; nd.classList.toggle('ok', Math.abs(n.cents) <= 5);
+}
+function showChord(r, c) {
+  chordHold.push(r ? r.best.name : null); if (chordHold.length > 12) chordHold.shift();
+  const counts = {}; chordHold.forEach(x => x && (counts[x] = (counts[x] || 0) + 1));
+  const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+  if (top && top[1] >= 6) { $('chordBig').textContent = top[0]; $('chordSub').textContent = r ? 'Alternativen: ' + r.alt.map(a => a.name).join(', ') : ''; }
+  $('pcChips').innerHTML = c ? Core.NAMES.map((nm, i) => `<span class="chip${c.ch[i] > 0.45 ? ' on' : ''}">${nm}</span>`).join('') : '';
+}
+
+// ---- recording for humming
+$('recBtn').onclick = () => {
+  if (!running) { say('Bitte zuerst das Mikrofon starten, oder eine Aufnahme laden.', true); return; }
+  if (!humFrames) { humFrames = []; humT0 = ctx.currentTime; $('recBtn').textContent = '■ Aufnahme stoppen'; say('Aufnahme läuft, summ jetzt …'); return; }
+  const frames = humFrames; humFrames = null; $('recBtn').textContent = '● Aufnahme starten';
+  showHum(Core.toNotes(frames)); say('Fertig.');
+};
+$('segSel').onchange = () => lastNotes && showHum(lastNotes);
+let lastNotes = null;
+function showHum(notes) {
+  lastNotes = notes;
+  const r = Core.harmonize(notes, +$('segSel').value);
+  if (!r.key) { $('humKey').textContent = 'Keine Melodie erkannt, versuch es lauter und deutlicher.'; $('humProg').innerHTML = ''; return; }
+  $('humKey').textContent = `Tonart: ${r.key.name} · ${notes.length} Töne erkannt`;
+  $('humProg').innerHTML = r.chords.map(c => `<span class="c">${c}</span>`).join('');
+  $('humNotes').hidden = false;
+  $('humNotes').textContent = 'Melodie: ' + notes.map(n => Core.name(n.midi) + (Math.floor(n.midi / 12) - 1)).join(' ');
+}
+
+// ---- audio file analysis (works in the claude.ai viewer too)
+$('fileIn').onchange = async e => {
+  const f = e.target.files[0]; if (!f) return;
+  say('Analysiere „' + f.name + '“ …');
+  try {
+    const ac = new (window.OfflineAudioContext || window.AudioContext)(1, 1, 44100);
+    const ab = await ac.decodeAudioData(await f.arrayBuffer());
+    let x = ab.getChannelData(0), sr = ab.sampleRate;
+    if (ab.numberOfChannels > 1) { const r = ab.getChannelData(1); x = x.map((v, i) => (v + r[i]) / 2); }
+    while (sr > 32000) { x = Core.decimate2(x); sr /= 2; }
+    const hop = 512, frames = [], chords = [];
+    for (let i = 0; i + 2048 <= x.length; i += hop) { const p = Core.detectPitch(x.subarray(i, i + 2048), sr); frames.push({ t: i / sr, midi: p && p.clarity > 0.8 ? Core.noteOf(p.freq).midi : null }); }
+    for (let i = 0; i + 8192 <= x.length; i += sr >> 1) { const r = Core.detectChord(Core.chroma(x.subarray(i, i + 8192), sr)); if (r && r.best.score > 0.75) chords.push({ t: i / sr, name: r.best.name }); }
+    const notes = Core.toNotes(frames);
+    $('noteList').hidden = false; $('noteList').textContent = notes.length ? notes.map(n => `${n.start.toFixed(2)} s  ${Core.name(n.midi)}${Math.floor(n.midi / 12) - 1}`).join('\n') : 'Keine Noten erkannt.';
+    $('noteList').style.whiteSpace = 'pre';
+    if (notes.length) { const n = notes.reduce((a, b) => b.dur > a.dur ? b : a); $('noteBig').textContent = Core.name(n.midi) + (Math.floor(n.midi / 12) - 1); $('noteSub').textContent = 'Längster Ton der Aufnahme'; }
+    const merged = chords.filter((c, i) => !i || c.name !== chords[i - 1].name);
+    $('chordList').hidden = false; $('chordList').style.whiteSpace = 'pre';
+    $('chordList').textContent = merged.length ? merged.map(c => `${c.t.toFixed(1)} s  ${c.name}`).join('\n') : 'Keine Akkorde erkannt.';
+    if (merged.length) { $('chordBig').textContent = merged.map(c => c.name).slice(0, 6).join(' '); $('chordSub').textContent = 'Akkordfolge der Aufnahme'; }
+    showHum(notes);
+    say(`Fertig: ${notes.length} Töne, ${merged.length} Akkordwechsel. Die Ergebnisse stehen in allen drei Tabs.`);
+  } catch (err) { say('Die Datei ließ sich nicht lesen. Probier MP3, M4A oder WAV.', true); }
+  e.target.value = '';
+};
+
+// ---- trainer
+const SHAPES = { C: 'x32010', G: '320003', D: 'xx0232', A: 'x02220', E: '022100', Am: 'x02210', Em: '022000', Dm: 'xx0231', E7: '020100', A7: 'x02020', D7: 'xx0212', F: '133211' };
+const learn = { mode: 'chord', target: 'C', score: 0, hold: 0 };
+$('learnMode').onchange = e => { learn.mode = e.target.value; newTask(); };
+$('nextBtn').onclick = () => newTask();
+function newTask() {
+  const pool = learn.mode === 'chord' ? Object.keys(SHAPES) : ['C', 'D', 'E', 'F', 'G', 'A', 'H'];
+  let t; do t = pool[Math.floor(Math.random() * pool.length)]; while (t === learn.target && pool.length > 1);
+  learn.target = t; learn.hold = 0;
+  $('target').textContent = t; $('target').classList.remove('ok-flash'); $('heard').textContent = 'Ich höre: –';
+  $('diagram').innerHTML = learn.mode === 'chord' ? diagram(SHAPES[t]) : '';
+}
+function success() {
+  learn.score++; $('score').textContent = learn.score + ' ✓'; $('target').classList.add('ok-flash');
+  learn.hold = -999; setTimeout(newTask, 1200);
+}
+function checkChord(r) {
+  const h = r && r.best.score > 0.75 ? r.best.name : null; $('heard').textContent = 'Ich höre: ' + (h || '–');
+  learn.hold = h === learn.target ? learn.hold + 1 : Math.min(learn.hold, 0);
+  if (learn.hold > 20) success();
+}
+function checkNote(p) {
+  const h = p && p.clarity > 0.8 ? Core.noteOf(p.freq).name : null; $('heard').textContent = 'Ich höre: ' + (h || '–');
+  learn.hold = h === learn.target ? learn.hold + 1 : Math.min(learn.hold, 0);
+  if (learn.hold > 12) success();
+}
+function diagram(shape) { // six strings, low E left; frets 1-4 (F is a barre at fret 1)
+  const xs = [20, 44, 68, 92, 116, 140]; let s = `<svg viewBox="0 0 160 170" role="img" aria-label="Griffbild ${shape}"><rect x="18" y="28" width="124" height="5" fill="currentColor"/>`;
+  for (let f = 1; f <= 4; f++) s += `<line x1="20" x2="140" y1="${30 + f * 32}" y2="${30 + f * 32}" stroke="var(--line)" stroke-width="2"/>`;
+  xs.forEach(x => s += `<line x1="${x}" x2="${x}" y1="30" y2="158" stroke="var(--string)" stroke-width="2"/>`);
+  [...shape].forEach((c, i) => {
+    if (c === 'x') s += `<text x="${xs[i]}" y="20" text-anchor="middle" font-size="14" fill="var(--muted)">x</text>`;
+    else if (c === '0') s += `<circle cx="${xs[i]}" cy="15" r="5" fill="none" stroke="var(--muted)" stroke-width="2"/>`;
+    else s += `<circle cx="${xs[i]}" cy="${30 + (+c) * 32 - 16}" r="10" fill="var(--accent)"/>`;
+  });
+  return s + '</svg>';
+}
+newTask();
+
+// ---- offer the app as a file, so the microphone works in a normal browser
+(async () => {
+  const downloads = await window.claude?.use?.('downloads');
+  if (!downloads) return;
+  $('saveBtn').hidden = false;
+  $('saveBtn').onclick = () => downloads.save({ filename: 'gitarrenohr.html', data: '<!doctype html>\n' + document.documentElement.outerHTML }).catch(() => say('Download abgebrochen.'));
+})();
+</script>
+
+</body></html>
