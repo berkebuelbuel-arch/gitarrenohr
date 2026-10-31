@@ -89,6 +89,9 @@ button.c{cursor:pointer;color:var(--fg);font:inherit;font-family:var(--f-display
 .fcol.cur{border-color:var(--accent);background:var(--bg)}
 .fcol.cur span.n{color:var(--accent);font-size:1.15em}
 .fcol.hit{animation:hit .35s ease-out}
+.fcol.bad{animation:bad .5s ease-out}
+@keyframes bad{0%,60%{border-color:var(--warn);transform:translateX(-3px)}30%{transform:translateX(3px)}}
+.bad-flash{color:var(--warn)}
 @keyframes hit{from{transform:scale(1.25)}to{transform:scale(1)}}
 [hidden]{display:none!important}
 @media (prefers-reduced-motion: reduce){.meter .needle{transition:none}}
@@ -226,7 +229,13 @@ button.c{cursor:pointer;color:var(--fg);font:inherit;font-family:var(--f-display
         <label>Oktaven <select id="scOct"><option value="1">1</option><option value="2">2</option></select></label>
         <label>Richtung <select id="scDir"><option value="up">aufwärts</option><option value="down">abwärts</option><option value="both" selected>auf und ab</option></select></label>
       </div>
-      <div class="row"><button class="btn" id="scStart">🎸 Nachspielen</button><button class="btn ghost" id="scHear">▶ Anhören</button></div>
+      <div class="row"><button class="btn" id="scStart">🎸 Nachspielen</button><button class="btn ghost" id="scFree">🎵 Frei spielen</button><button class="btn ghost" id="scHear">▶ Anhören</button></div>
+      <div class="card center" id="freeCard" hidden>
+        <div class="sub">Spiel beliebige Töne. Die App sagt dir, ob sie zur Tonleiter gehören.</div>
+        <div class="mid" id="freeMsg">–</div>
+        <div class="chips" id="freeChips"></div>
+        <div class="sub" id="freeScore"></div>
+      </div>
       <div class="card"><div class="sub" id="scInfo"></div><div class="tabbox"><div id="scBoard"></div></div>
         <p class="note">Griffbrett-Karte: Grundton in Orange, die übrigen Töne der Tonleiter gefüllt. Beim Nachspielen ist der nächste Ton eingekreist.</p></div>
     </div>
@@ -793,6 +802,7 @@ function loop() {
   if (panel === 'stimmen') tune(p);
   if (panel === 'ueben') practiceTick();
   if (follow.on && (panel === 'idee' || panel === 'ueben')) followTick(Math.sqrt(rms / 2048));
+  if (free.on && panel === 'ueben') freeTick();
   if (rec) { rec.push({ t: ctx.currentTime - recT0, midi: lastMidiF, rms: level }); $('recLive').textContent = 'Aufnahme … ' + (lastPitch ? 'ich höre ' + noteLabel(lastPitch.midi) : 'lauter summen'); }
   requestAnimationFrame(loop);
 }
@@ -849,7 +859,7 @@ const STR_NAMES = ['E', 'A', 'D', 'G', 'H', 'e'];
 function followStart(seq, tech = [], host = $('ideaCard')) {
   follow.seq = seq; follow.tech = tech; if (!seq.length) return;
   host.after($('followCard')); // the card follows you into the panel that started it
-  Object.assign(follow, { on: true, i: 0, stable: 0, wrong: 0, needRelease: false });
+  Object.assign(follow, { on: true, i: 0, stable: 0, wrong: 0, needRelease: false, errors: 0, lastWrong: null, t0: performance.now() }); free.on && freeStop();
   $('followTab').innerHTML = '<div class="fcol lab">' + [5, 4, 3, 2, 1, 0].map(s => `<span>${STR_NAMES[s]}</span>`).join('') + '</div>' +
     follow.seq.map((p, i) => `<div class="fcol" id="fc${i}">` + [5, 4, 3, 2, 1, 0].map(s => p.s === s ? `<span class="n">${G.label(p, tech[i])}</span>` : '<span>–</span>').join('') + '</div>').join('');
   $('followCard').hidden = false; followShow(); $('followCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -859,7 +869,14 @@ function followShow() {
   const n = follow.seq.length, i = follow.i;
   $('followProg').textContent = `${Math.min(i, n)} / ${n}`;
   document.querySelectorAll('#followTab .fcol[id]').forEach((el, j) => { el.classList.toggle('done', j < i); el.classList.toggle('cur', j === i); });
-  if (i >= n) { $('followNext').textContent = '🎉 Geschafft!'; $('followNext').classList.add('ok-flash'); markPracticed(); return; }
+  if (i >= n) {
+    const secs = Math.round((performance.now() - follow.t0) / 1000), acc = Math.round(100 * n / (n + follow.errors)), key = 'best.' + (follow.key || 'idee');
+    const best = store.get(key, null), rec = !best || follow.errors < best.e || (follow.errors === best.e && secs < best.s);
+    if (rec) store.set(key, { e: follow.errors, s: secs });
+    $('followNext').textContent = `🎉 Geschafft! ${follow.errors} Fehler · ${acc} % richtig · ${secs} s`; $('followNext').classList.add('ok-flash');
+    $('followHeard').textContent = rec ? '🏆 Neue Bestleistung!' : `Bestleistung: ${best.e} Fehler in ${best.s} s`;
+    markPracticed(); return;
+  }
   const p = follow.seq[i]; $('followNext').classList.remove('ok-flash');
   const tk = follow.tech[i] && follow.tech[i].t;
   $('followNext').textContent = `${STR_NAMES[p.s]}-Saite, ${p.f === 0 ? 'leer' : 'Bund ' + p.f} (${noteLabel(p.midi)})${tk ? ' · ' + G.TECH_NAMES[tk] : ''}`;
@@ -877,7 +894,7 @@ function followHit() {
 function followTick(level) {
   if (follow.i >= follow.seq.length) return;
   const t = follow.seq[follow.i], n = lastPitch;
-  $('followHeard').textContent = 'Ich höre: ' + (n ? noteLabel(n.midi) : '–');
+  if (!(performance.now() < follow.msgUntil)) $('followHeard').textContent = 'Ich höre: ' + (n ? noteLabel(n.midi) : '–'); // keep a ✗ message readable
   if (follow.needRelease) { // a repeated note counts only after silence or a fresh attack
     follow.silent = n ? 0 : follow.silent + 1; follow.minRms = Math.min(follow.minRms, level);
     if (follow.silent >= 3 || level > follow.minRms * 1.8 + 0.002 || (n && n.midi !== t.midi)) follow.needRelease = false; else return;
@@ -885,10 +902,15 @@ function followTick(level) {
   const ok = lastMidiF != null && [0, 12, -12].some(o => Math.abs(lastMidiF + o - t.midi) < 0.6); // octave slips and slightly off singing still count
   follow.stable = ok ? follow.stable + 1 : 0;
   follow.wrong = n && !ok ? follow.wrong + 1 : 0;
-  if (follow.wrong === 10) $('followHeard').textContent = `Ich höre ${noteLabel(n.midi)}, gesucht ist ${noteLabel(t.midi)}`;
+  if (ok) follow.lastWrong = null;
+  if (follow.wrong === 8 && n.midi !== follow.lastWrong) { // a held wrong note counts once
+    follow.errors++; follow.lastWrong = n.midi; follow.msgUntil = performance.now() + 1500;
+    $('followHeard').textContent = `✗ ${noteLabel(n.midi)} ist falsch, gesucht ist ${noteLabel(t.midi)} · ${follow.errors} Fehler`;
+    const el = $('fc' + follow.i); if (el) { el.classList.remove('bad'); void el.offsetWidth; el.classList.add('bad'); }
+  }
   if (follow.stable >= 4) followHit();
 }
-const ideaFollow = () => { const a = analyzeIdea(); follow.board = null; follow.restart = null; followStart(a.tab, a.tech); };
+const ideaFollow = () => { const a = analyzeIdea(); follow.key = null; follow.board = null; follow.restart = null; followStart(a.tab, a.tech); };
 $('followBtn').onclick = ideaFollow;
 $('followRestart').onclick = () => follow.restart ? follow.restart() : ideaFollow();
 $('followClose').onclick = () => { follow.on = false; $('followCard').hidden = true; };
@@ -1160,7 +1182,7 @@ $('scRoot').innerHTML = Core.NAMES.map((n, i) => `<option value="${i}" ${i === 9
 $('scType').innerHTML = G.SCALES.map(([n], i) => `<option value="${i}" ${i === 5 ? 'selected' : ''}>${n}</option>`).join('');
 const scaleSel = () => { const pc = +$('scRoot').value, [nm, iv] = G.SCALES[+$('scType').value], midis = G.scaleNotes(pc, iv, +$('scOct').value, $('scDir').value);
   return { pc, nm, iv, midis, tab: G.tabify(midis.map((m, i) => ({ midi: m, start: i * 0.5, dur: 0.45 })), false) }; };
-function fretboard(pcs, root, target) { // high e on top like a tab, frets 0-12
+function fretboard(pcs, root, target, found = []) { // high e on top like a tab, frets 0-12
   const W = 600, H = 150, x = f => 24 + f * 44, y = s => 16 + (5 - s) * 24;
   let svg = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="max-width:none" role="img" aria-label="Griffbrett">`;
   for (let f = 1; f <= 12; f++) svg += `<line x1="${x(f) - 22}" x2="${x(f) - 22}" y1="12" y2="${y(0) + 4}" stroke="var(--line)" stroke-width="${f === 1 ? 4 : 2}"/>`;
@@ -1168,17 +1190,44 @@ function fretboard(pcs, root, target) { // high e on top like a tab, frets 0-12
   for (let s = 0; s < 6; s++) { svg += `<line x1="${x(0)}" x2="${W - 8}" y1="${y(s)}" y2="${y(s)}" stroke="var(--string)" stroke-width="1.5"/><text x="6" y="${y(s) + 4}" font-size="11" fill="var(--muted)">${STR_NAMES[s]}</text>`;
     for (let f = 0; f <= 12; f++) { const m = G.OPEN[s] + f, pc = m % 12; if (!pcs.includes(pc)) continue;
       const isT = target && target.s === s && target.f === f;
-      svg += `<circle cx="${x(f)}" cy="${y(s)}" r="9" fill="${pc === root ? 'var(--accent)' : 'var(--muted)'}" opacity="${pc === root ? 1 : 0.55}"/>` + (isT ? `<circle cx="${x(f)}" cy="${y(s)}" r="13" fill="none" stroke="var(--good)" stroke-width="3"/>` : '');
+      svg += `<circle cx="${x(f)}" cy="${y(s)}" r="9" fill="${found.includes(pc) ? 'var(--good)' : pc === root ? 'var(--accent)' : 'var(--muted)'}" opacity="${pc === root || found.includes(pc) ? 1 : 0.55}"/>` + (isT ? `<circle cx="${x(f)}" cy="${y(s)}" r="13" fill="none" stroke="var(--good)" stroke-width="3"/>` : '');
       svg += `<text x="${x(f)}" y="${y(s) + 3.5}" text-anchor="middle" font-size="9" font-weight="700" fill="var(--bg)">${Core.name(pc)}</text>`; } }
   return svg + '</svg>';
 }
 function scaleShow(target) {
   const { pc, nm, iv, midis } = scaleSel(), pcs = iv.map(i => (pc + i) % 12);
   $('scInfo').textContent = `${Core.name(pc)} ${nm}: ${pcs.map(Core.name).join(' ')} · ${midis.length} Töne zum Nachspielen`;
-  $('scBoard').innerHTML = fretboard(pcs, pc, target);
+  $('scBoard').innerHTML = fretboard(pcs, pc, target, free.on ? [...free.found] : []);
 }
 ['scRoot', 'scType', 'scOct', 'scDir'].forEach(id => $(id).onchange = () => scaleShow());
-$('scStart').onclick = () => { const sc = scaleSel(); follow.board = p => scaleShow(p); follow.restart = $('scStart').onclick; followStart(sc.tab, [], $('scStart').parentElement); };
+$('scStart').onclick = () => { const sc = scaleSel(); follow.key = ['sc', $('scRoot').value, $('scType').value, $('scOct').value, $('scDir').value].join('.'); follow.board = p => scaleShow(p); follow.restart = $('scStart').onclick; followStart(sc.tab, [], $('scStart').parentElement); };
+// free play: every note you play is checked against the chosen scale
+const free = { on: false, pcs: [], found: new Set(), cur: null, n: 0, counted: false, ok: 0, bad: 0 };
+function freeStop() { free.on = false; $('freeCard').hidden = true; $('scFree').textContent = '🎵 Frei spielen'; scaleShow(); }
+$('scFree').onclick = () => {
+  if (free.on) return freeStop();
+  if (follow.on) { follow.on = false; $('followCard').hidden = true; }
+  const { pc, iv } = scaleSel(); Object.assign(free, { on: true, pcs: iv.map(i => (pc + i) % 12), root: pc, found: new Set(), cur: null, n: 0, counted: false, ok: 0, bad: 0 });
+  $('freeCard').hidden = false; $('scFree').textContent = '■ Frei spielen beenden'; $('freeMsg').textContent = 'Spiel einen Ton …'; $('freeMsg').className = 'mid'; freeShow();
+  if (!running) say('Tipp auf „🎤 Mikrofon starten“, dann hört die App, was du spielst.', true);
+};
+function freeShow() {
+  $('freeChips').innerHTML = free.pcs.map(pc => `<span class="chip${free.found.has(pc) ? ' on' : ''}">${free.found.has(pc) ? '✓ ' : ''}${Core.name(pc)}</span>`).join('');
+  $('freeScore').textContent = `${free.found.size} von ${free.pcs.length} Tönen gefunden · ${free.ok} richtig · ${free.bad} daneben`;
+  scaleShow();
+}
+function freeTick() {
+  const m = lastMidiF == null ? null : Math.round(lastMidiF);
+  if (m !== free.cur) { free.cur = m; free.n = 0; free.counted = false; return; }
+  if (m == null || free.counted || ++free.n < 5) return; // judge each note once, after it is stable
+  free.counted = true; const pc = ((m % 12) + 12) % 12, inScale = free.pcs.includes(pc);
+  if (inScale) { free.ok++; free.found.add(pc); } else free.bad++;
+  $('freeMsg').textContent = inScale ? `✓ ${noteLabel(m)} gehört dazu` : `✗ ${noteLabel(m)} gehört nicht dazu`;
+  $('freeMsg').className = 'mid ' + (inScale ? 'ok-flash' : 'bad-flash');
+  if (free.found.size === free.pcs.length && inScale) $('freeMsg').textContent += ' · 🎉 alle Töne gefunden!';
+  freeShow();
+}
+['scRoot', 'scType'].forEach(id => $(id).addEventListener('change', () => free.on && (freeStop(), $('scFree').click())));
 $('scHear').onclick = () => { stopAll(); const t0 = audio().currentTime + 0.1; scaleSel().midis.forEach((m, i) => pluck(m, t0 + i * 0.35, 0.8)); };
 
 newTarget(); showStreak();
