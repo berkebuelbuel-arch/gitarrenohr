@@ -90,6 +90,10 @@ button.c{cursor:pointer;color:var(--fg);font:inherit;font-family:var(--f-display
 .fcol.cur span.n{color:var(--accent);font-size:1.15em}
 .fcol.hit{animation:hit .35s ease-out}
 .fcol.bad{animation:bad .5s ease-out}
+.fcol.ok span.n{color:var(--good)}
+.fcol.meh span.n{color:var(--warn);opacity:.75}
+.fcol.miss span.n{color:var(--warn)}
+.fcol.miss{border-color:var(--warn)}
 @keyframes bad{0%,60%{border-color:var(--warn);transform:translateX(-3px)}30%{transform:translateX(3px)}}
 .bad-flash{color:var(--warn)}
 @keyframes hit{from{transform:scale(1.25)}to{transform:scale(1)}}
@@ -204,7 +208,7 @@ button.c{cursor:pointer;color:var(--fg);font:inherit;font-family:var(--f-display
   <!-- Üben -->
   <section class="panel" id="p-ueben" hidden>
     <div class="row">
-      <label>Übung <select id="learnMode"><option value="pfad">Lernpfad (Level)</option><option value="mit">Mitspielen im Takt</option><option value="note">Noten finden</option><option value="scale">Tonleitern nachspielen</option></select></label>
+      <label>Übung <select id="learnMode"><option value="pfad">Lernpfad (Level)</option><option value="mit">Mitspielen im Takt</option><option value="note">Noten finden</option><option value="scale">Tonleitern & Arpeggios</option><option value="riff">Riffs & Licks</option><option value="wechsel">Akkordwechsel-Minute</option><option value="schwach">Schwachstellen-Training</option></select></label>
       <span class="pill" id="streak">🔥 0 Tage</span>
     </div>
 
@@ -229,7 +233,7 @@ button.c{cursor:pointer;color:var(--fg);font:inherit;font-family:var(--f-display
         <label>Oktaven <select id="scOct"><option value="1">1</option><option value="2">2</option></select></label>
         <label>Richtung <select id="scDir"><option value="up">aufwärts</option><option value="down">abwärts</option><option value="both" selected>auf und ab</option></select></label>
       </div>
-      <div class="row"><button class="btn" id="scStart">🎸 Nachspielen</button><button class="btn ghost" id="scFree">🎵 Frei spielen</button><button class="btn ghost" id="scHear">▶ Anhören</button></div>
+      <div class="row"><button class="btn" id="scStart">🎸 Nachspielen</button><button class="btn" id="scSpeed">⚡ Im Takt</button><button class="btn ghost" id="scFree">🎵 Frei spielen</button><button class="btn ghost" id="scHear">▶ Anhören</button></div>
       <div class="card center" id="freeCard" hidden>
         <div class="sub">Spiel beliebige Töne. Die App sagt dir, ob sie zur Tonleiter gehören.</div>
         <div class="mid" id="freeMsg">–</div>
@@ -238,6 +242,37 @@ button.c{cursor:pointer;color:var(--fg);font:inherit;font-family:var(--f-display
       </div>
       <div class="card"><div class="sub" id="scInfo"></div><div class="tabbox"><div id="scBoard"></div></div>
         <p class="note">Griffbrett-Karte: Grundton in Orange, die übrigen Töne der Tonleiter gefüllt. Beim Nachspielen ist der nächste Ton eingekreist.</p></div>
+    </div>
+
+    <div id="m-riff" class="panel" hidden>
+      <div class="row"><label>Riff / Übung <select id="rfSel"></select></label></div>
+      <div class="card"><div class="sub" id="rfInfo"></div><div class="tabbox"><pre id="rfTab"></pre></div>
+        <div class="row"><button class="btn" id="rfFollow">🎸 Nachspielen</button><button class="btn" id="rfSpeed">⚡ Im Takt (Speed-Trainer)</button><button class="btn ghost" id="rfHear">▶ Anhören</button></div></div>
+    </div>
+
+    <div id="m-wechsel" class="panel" hidden>
+      <div class="row"><label>Akkord 1 <select id="wxA"></select></label><label>Akkord 2 <select id="wxB"></select></label><button class="btn" id="wxStart">▶ 60 Sekunden starten</button></div>
+      <div class="card center">
+        <div class="big" id="wxCount">0</div><div class="sub">saubere Wechsel</div>
+        <div class="mid" id="wxTime">1:00</div>
+        <div class="diagrams" id="wxDg" style="justify-content:center"></div>
+        <div class="sub" id="wxBest"></div>
+      </div>
+      <p class="note">So geht's: Wechsel so oft wie möglich zwischen den beiden Akkorden, jeden kurz anschlagen. Gezählt wird nur, wenn der Akkord sauber klingt. Jeden Tag eine Minute pro Akkordpaar bringt erfahrungsgemäß schneller flüssige Wechsel als stundenlanges Durchspielen von Liedern.</p>
+    </div>
+
+    <div id="m-schwach" class="panel" hidden>
+      <div class="card"><h2>Deine Schwachstellen</h2><div class="sub" id="wkList">Noch keine Daten. Spiel Tonleitern, Riffs oder Ideen im Nachspiel- oder Speed-Modus. Die App merkt sich, wo du danebenliegst.</div>
+        <div class="row"><button class="btn" id="wkDrill">🎯 Gezielt üben</button><button class="btn ghost small" id="wkClear">Liste löschen</button></div></div>
+    </div>
+
+    <div class="card" id="speedCard" hidden>
+      <div class="prow"><h2>Speed-Trainer</h2><span class="pill" id="spdBpm">80 BPM</span></div>
+      <div class="mid" id="spdMsg">–</div>
+      <div class="sub" id="spdSub"></div>
+      <div class="ftab" id="spdTab"></div>
+      <div class="row"><button class="btn" id="spdAgain">▶ Nochmal</button><button class="btn ghost small" id="spdSlower">− 5 BPM</button><button class="btn ghost small" id="spdFaster">+ 5 BPM</button><button class="btn ghost small" id="spdStop">■ Stopp</button></div>
+      <p class="note">Spiel jeden Ton auf den Klick. ✓ im Takt (grün), ~ knapp daneben (gelb), ✗ verpasst (rot). Ab 90 % geht das Tempo automatisch hoch, unter 60 % runter.</p>
     </div>
 
     <div id="m-note" class="panel" hidden>
@@ -609,7 +644,9 @@ const GuitarCore = (() => {
     const down = up.slice().reverse();
     return dir === 'down' ? down : dir === 'both' ? up.concat(down.slice(1)) : up;
   }
-  return { OPEN, STRINGS, SHAPES, parseChord, chordShape, voicing, rhythm, tabify, tabText, lenSym, techniques, label, TECH_NAMES, SCALES, scaleNotes };
+  const ARPS = [['Dur', [0, 4, 7]], ['Moll', [0, 3, 7]], ['Dominant-Sept (7)', [0, 4, 7, 10]], ['Maj7', [0, 4, 7, 11]], ['Moll-Sept (m7)', [0, 3, 7, 10]],
+    ['Halbvermindert (m7b5)', [0, 3, 6, 10]], ['Vermindert', [0, 3, 6]], ['Übermäßig', [0, 4, 8]], ['Sus4', [0, 5, 7]], ['Add9', [0, 2, 4, 7]]];
+  return { OPEN, STRINGS, SHAPES, parseChord, chordShape, voicing, rhythm, tabify, tabText, lenSym, techniques, label, TECH_NAMES, SCALES, ARPS, scaleNotes };
 })();
 
 // ---- song splitting: center/side spectral masking (vocals sit in the middle of a stereo mix)
@@ -796,13 +833,15 @@ function loop() {
   const half = ctx.sampleRate > 32000, x = half ? Core.decimate2(buf) : buf, sr = half ? ctx.sampleRate / 2 : ctx.sampleRate;
   const p = Core.detectPitch(x.subarray(x.length - 2048), sr);
   lastPitch = p && p.clarity > 0.6 ? Core.noteOf(p.freq) : null; lastMidiF = lastPitch ? Core.midiOf(p.freq) : null;
-  const wantChord = panel === 'hoeren' || (panel === 'ueben' && (learnMode === 'pfad' || learnMode === 'mit'));
+  const wantChord = panel === 'hoeren' || (panel === 'ueben' && ['pfad', 'mit', 'wechsel'].includes(learnMode));
   if (wantChord) { const c = Core.chroma(x.subarray(x.length - 8192), sr), r = c && p ? Core.detectChord(c) : null; lastChord = r && r.best.score > 0.75 ? r.best.name : null; if (panel === 'hoeren') showChord(r, c); }
   if (panel === 'hoeren') showNote(p);
   if (panel === 'stimmen') tune(p);
   if (panel === 'ueben') practiceTick();
   if (follow.on && (panel === 'idee' || panel === 'ueben')) followTick(Math.sqrt(rms / 2048));
   if (free.on && panel === 'ueben') freeTick();
+  if (speed.on && panel === 'ueben') speedTick(level);
+  if (wx.on) wechselTick();
   if (rec) { rec.push({ t: ctx.currentTime - recT0, midi: lastMidiF, rms: level }); $('recLive').textContent = 'Aufnahme … ' + (lastPitch ? 'ich höre ' + noteLabel(lastPitch.midi) : 'lauter summen'); }
   requestAnimationFrame(loop);
 }
@@ -904,7 +943,7 @@ function followTick(level) {
   follow.wrong = n && !ok ? follow.wrong + 1 : 0;
   if (ok) follow.lastWrong = null;
   if (follow.wrong === 8 && n.midi !== follow.lastWrong) { // a held wrong note counts once
-    follow.errors++; follow.lastWrong = n.midi; follow.msgUntil = performance.now() + 1500;
+    follow.errors++; follow.lastWrong = n.midi; follow.msgUntil = performance.now() + 1500; weakAdd(follow.seq, follow.i);
     $('followHeard').textContent = `✗ ${noteLabel(n.midi)} ist falsch, gesucht ist ${noteLabel(t.midi)} · ${follow.errors} Fehler`;
     const el = $('fc' + follow.i); if (el) { el.classList.remove('bad'); void el.offsetWidth; el.classList.add('bad'); }
   }
@@ -999,7 +1038,7 @@ const LEVELS = [
   { t: 'Level 7: Barré', c: ['F', 'H7'] }];
 const NEED = 3;
 let learnMode = 'pfad', pfad = store.get('pfad', { level: 0, hits: {} }), target = null, hold = 0;
-$('learnMode').onchange = e => { learnMode = e.target.value; ['pfad', 'mit', 'note', 'scale'].forEach(m => $('m-' + m).hidden = m !== learnMode); if (learnMode === 'note') newNoteTask(); if (learnMode === 'scale') scaleShow(); };
+$('learnMode').onchange = e => { learnMode = e.target.value; ['pfad', 'mit', 'note', 'scale', 'riff', 'wechsel', 'schwach'].forEach(m => $('m-' + m).hidden = m !== learnMode); if (learnMode === 'note') newNoteTask(); if (learnMode === 'scale') scaleShow(); if (learnMode === 'riff') riffShow(); if (learnMode === 'wechsel') wxShow(); if (learnMode === 'schwach') weakShow(); };
 function renderLevel() {
   const L = LEVELS[Math.min(pfad.level, LEVELS.length - 1)];
   $('lvlTitle').textContent = L.t;
@@ -1179,8 +1218,8 @@ $('spMel').onclick = () => {
 
 // ---------- scales: pick any scale in any key, then play it note by note (follow mode)
 $('scRoot').innerHTML = Core.NAMES.map((n, i) => `<option value="${i}" ${i === 9 ? 'selected' : ''}>${n}</option>`).join('');
-$('scType').innerHTML = G.SCALES.map(([n], i) => `<option value="${i}" ${i === 5 ? 'selected' : ''}>${n}</option>`).join('');
-const scaleSel = () => { const pc = +$('scRoot').value, [nm, iv] = G.SCALES[+$('scType').value], midis = G.scaleNotes(pc, iv, +$('scOct').value, $('scDir').value);
+$('scType').innerHTML = '<optgroup label="Tonleitern">' + G.SCALES.map(([n], i) => `<option value="s${i}" ${i === 5 ? 'selected' : ''}>${n}</option>`).join('') + '</optgroup><optgroup label="Arpeggios">' + G.ARPS.map(([n], i) => `<option value="a${i}">Arpeggio ${n}</option>`).join('') + '</optgroup>';
+const scaleSel = () => { const v = $('scType').value, pc = +$('scRoot').value, [nm, iv] = (v[0] === 'a' ? G.ARPS : G.SCALES)[+v.slice(1)], midis = G.scaleNotes(pc, iv, +$('scOct').value, $('scDir').value);
   return { pc, nm, iv, midis, tab: G.tabify(midis.map((m, i) => ({ midi: m, start: i * 0.5, dur: 0.45 })), false) }; };
 function fretboard(pcs, root, target, found = []) { // high e on top like a tab, frets 0-12
   const W = 600, H = 150, x = f => 24 + f * 44, y = s => 16 + (5 - s) * 24;
@@ -1229,6 +1268,135 @@ function freeTick() {
 }
 ['scRoot', 'scType'].forEach(id => $(id).addEventListener('change', () => free.on && (freeStop(), $('scFree').click())));
 $('scHear').onclick = () => { stopAll(); const t0 = audio().currentTime + 0.1; scaleSel().midis.forEach((m, i) => pluck(m, t0 + i * 0.35, 0.8)); };
+
+// ---------- riffs & licks: original exercises and public-domain melodies, [string 0=E..5=e, fret, eighths, technique]
+const spider = []; for (let s = 0; s < 6; s++) for (let f = 1; f <= 4; f++) spider.push([s, f, 1]);
+const RIFFS = [
+  { t: 'Spinne 1-2-3-4 (Fingertraining)', goal: 'Jeder Finger ein Bund, alle Saiten. Langsam und sauber, dann schneller.', notes: spider },
+  { t: 'Chromatisch auf einer Saite', goal: 'Aufwärmen und Tempo: Bund 0 bis 12 auf der tiefen E-Saite.', notes: Array.from({ length: 13 }, (_, f) => [0, f, 1]) },
+  { t: 'Hammer-on-Training', goal: 'Ton anschlagen, nächsten Ton nur mit dem Finger „draufhämmern“.', notes: [[3, 0, 2], [3, 2, 2, 'h'], [2, 0, 2], [2, 2, 2, 'h'], [1, 0, 2], [1, 2, 2, 'h'], [3, 0, 1], [3, 2, 1, 'h'], [3, 4, 2, 'h']] },
+  { t: 'Pull-off-Training', goal: 'Finger seitlich von der Saite ziehen, damit der tiefere Ton klingt.', notes: [[3, 2, 2], [3, 0, 2, 'p'], [4, 3, 2], [4, 0, 2, 'p'], [5, 3, 2], [5, 0, 2, 'p'], [5, 3, 1], [5, 2, 1, 'p'], [5, 0, 2, 'p']] },
+  { t: 'Slide-Training', goal: 'Finger auf der Saite lassen und mit Druck rutschen.', notes: [[3, 5, 2], [3, 7, 2, '/'], [3, 5, 2, '\\'], [4, 5, 2], [4, 8, 2, '/'], [4, 5, 4, '\\']] },
+  { t: 'Bending-Lick in A', goal: 'Saite hochschieben, bis sie wie Bund 9 klingt. Ohr entscheidet!', notes: [[3, 7, 2], [3, 9, 2, 'b'], [4, 8, 2], [4, 5, 2], [3, 7, 4]] },
+  { t: 'Blues-Lick in A (Pentatonik)', goal: 'Der klassische Abwärtslauf durch die A-Moll-Pentatonik, 5. Bund.', notes: [[5, 8, 1], [5, 5, 1], [4, 8, 1], [4, 5, 1], [3, 7, 2], [3, 5, 1], [2, 7, 1], [2, 5, 2], [1, 7, 1], [1, 5, 1], [0, 8, 1], [0, 5, 3]] },
+  { t: 'Rock-Riff in E (Einzeltöne)', goal: 'Gedämpft und im Takt, tiefe Saiten.', notes: [[0, 0, 1], [0, 0, 1], [0, 3, 1], [0, 0, 1], [0, 5, 1], [0, 3, 1], [0, 0, 2], [1, 0, 1], [1, 0, 1], [1, 3, 1], [1, 0, 1], [1, 2, 1], [1, 3, 1], [0, 0, 2]] },
+  { t: 'Folk-Picking G → C', goal: 'Akkord greifen, Saiten einzeln zupfen (Arpeggio-Picking).', notes: [[0, 3, 1], [2, 0, 1], [3, 0, 1], [4, 0, 1], [5, 3, 1], [4, 0, 1], [3, 0, 1], [2, 0, 1], [1, 3, 1], [2, 2, 1], [3, 0, 1], [4, 1, 1], [5, 0, 1], [4, 1, 1], [3, 0, 1], [2, 2, 1]] },
+  { t: 'Ode an die Freude (Beethoven, gemeinfrei)', goal: 'Erste Melodie, ganz in der ersten Lage.', midis: [64, 64, 65, 67, 67, 65, 64, 62, 60, 60, 62, 64, 64, 62, 62], lens: [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 1, 4] },
+  { t: 'Für Elise – Anfang (Beethoven, gemeinfrei)', goal: 'Schneller Wechsel E–D# auf der hohen e-Saite.', midis: [76, 75, 76, 75, 76, 71, 74, 72, 69], lens: [1, 1, 1, 1, 1, 1, 1, 1, 4] }];
+function riffData(r) {
+  if (r.midis) { const notes = r.midis.map((m, i) => ({ midi: m, start: i, dur: 1 })); return { tab: G.tabify(notes, true), lens: r.lens, tech: [] }; }
+  return { tab: r.notes.map(([s, f]) => ({ s, f, midi: G.OPEN[s] + f })), lens: r.notes.map(n => n[2]), tech: r.notes.map(n => ({ t: n[3] || '', vib: false })) };
+}
+const rhOf = lens => { let p = 0; return { pos: lens.map(l => (p += l) - l), len: lens }; };
+$('rfSel').innerHTML = RIFFS.map((r, i) => `<option value="${i}">${r.t}</option>`).join('');
+function riffShow() { const r = RIFFS[$('rfSel').value], d = riffData(r); $('rfInfo').textContent = r.goal; $('rfTab').textContent = G.tabText(d.tab, rhOf(d.lens), d.tech); }
+$('rfSel').onchange = riffShow;
+$('rfHear').onclick = () => { stopAll(); const d = riffData(RIFFS[$('rfSel').value]), e = 0.25, t0 = audio().currentTime + 0.1; let p = 0; d.tab.forEach((n, i) => { pluck(n.midi, t0 + p * e, 0.9); p += d.lens[i]; }); };
+$('rfFollow').onclick = () => { const d = riffData(RIFFS[$('rfSel').value]); follow.key = 'riff.' + $('rfSel').value; follow.board = null; follow.restart = $('rfFollow').onclick; followStart(d.tab, d.tech, $('rfFollow').parentElement); };
+$('rfSpeed').onclick = () => { const d = riffData(RIFFS[$('rfSel').value]); speedStart(d.tab, d.lens, d.tech, 'riff.' + $('rfSel').value, $('rfFollow').parentElement); };
+$('scSpeed').onclick = () => { const sc = scaleSel(); speedStart(sc.tab, sc.tab.map(() => 1), [], ['sc', $('scRoot').value, $('scType').value, $('scOct').value, $('scDir').value].join('.'), $('scStart').parentElement); };
+
+// ---------- speed trainer: play on the click, every note judged for timing, tempo adapts
+const LAT = 0.07; // detection delay of the pitch window, subtracted from your timing
+const speed = { on: false, seq: [], lens: [], tech: [], key: '', bpm: 70, times: [], j: 0, t0: 0, res: [], match: 0, armed: true, minRms: 1 };
+function speedStart(seq, lens, tech, key, host) {
+  if (follow.on) { follow.on = false; $('followCard').hidden = true; } if (free.on) freeStop();
+  Object.assign(speed, { seq, lens, tech, key, bpm: store.get('bpm.' + key, 70) });
+  host.after($('speedCard')); $('speedCard').hidden = false;
+  $('spdTab').innerHTML = '<div class="fcol lab">' + [5, 4, 3, 2, 1, 0].map(s => `<span>${STR_NAMES[s]}</span>`).join('') + '</div>' +
+    seq.map((p, i) => `<div class="fcol" id="sd${i}">` + [5, 4, 3, 2, 1, 0].map(s => p.s === s ? `<span class="n">${G.label(p, tech[i])}</span>` : '<span>–</span>').join('') + '</div>').join('');
+  $('speedCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  if (!running) { say('Tipp auf „🎤 Mikrofon starten“, dann hört die App, was du spielst.', true); return; }
+  speedRun();
+}
+function speedRun() {
+  stopAll(); const a = audio(), beat = 60 / speed.bpm, e = beat / 2; let p = 0;
+  speed.times = speed.lens.map(l => (p += l, (p - l) * e)); const total = p * e, start = a.currentTime + 0.2;
+  speed.t0 = start + 4 * beat;
+  for (let k = 0; k * beat <= 4 * beat + total; k++) click(start + k * beat, k % 4 === 0);
+  Object.assign(speed, { on: true, j: 0, res: [], match: 0, armed: true, minRms: 1 });
+  $('spdBpm').textContent = speed.bpm + ' BPM'; $('spdSub').textContent = ''; $('spdMsg').className = 'mid';
+  document.querySelectorAll('#spdTab .fcol[id]').forEach(el => el.className = 'fcol');
+}
+function speedJudge(kind, off) {
+  const el = $('sd' + speed.j); if (el) el.className = 'fcol ' + kind;
+  speed.res.push(kind); if (kind !== 'ok') weakAdd(speed.seq, speed.j);
+  $('spdSub').textContent = kind === 'ok' ? '✓ im Takt' : kind === 'meh' ? `~ ${off < 0 ? 'zu früh' : 'zu spät'} (${Math.round(Math.abs(off) * 1000)} ms)` : '✗ verpasst';
+  speed.j++; speed.match = 0; if (kind !== 'miss') speed.armed = false; // a miss played nothing, so the next onset may still count
+}
+function speedTick(level) {
+  const now = ctx.currentTime - speed.t0 - LAT, n = speed.seq.length;
+  if (now < -LAT) { $('spdMsg').textContent = 'Einzählen … ' + Math.ceil(-now / (60 / speed.bpm)); return; }
+  // a note is missed when its window closes, or as soon as the next note is due (fast passages)
+  while (speed.j < n && (now > speed.times[speed.j] + 0.35 || (speed.j + 1 < n && now > Math.max(speed.times[speed.j] + 0.2, speed.times[speed.j + 1] - 0.12)))) speedJudge('miss', 0);
+  if (speed.j >= n) return speedEnd();
+  const t = speed.seq[speed.j], ok = lastMidiF != null && [0, 12, -12].some(o => Math.abs(lastMidiF + o - t.midi) < 0.6);
+  $('spdMsg').textContent = `Ton ${speed.j + 1} / ${n}`;
+  if (!ok) speed.armed = true; // previous note gone or a different one: the next onset counts
+  else { if (level > speed.minRms * 1.8 + 0.002) speed.armed = true; speed.minRms = Math.min(speed.minRms, level); }
+  speed.match = ok && speed.armed ? speed.match + 1 : 0;
+  const off = now - speed.times[speed.j];
+  if (speed.match >= 2 && off > -0.35) { speedJudge(Math.abs(off) <= 0.1 ? 'ok' : 'meh', off); speed.minRms = level; }
+}
+function speedEnd() {
+  speed.on = false; const n = speed.res.length, ok = speed.res.filter(r => r === 'ok').length, meh = speed.res.filter(r => r === 'meh').length, acc = (ok + 0.5 * meh) / n;
+  let msg = `${Math.round(acc * 100)} % · ✓ ${ok} · ~ ${meh} · ✗ ${n - ok - meh}`;
+  const hist = store.get('hist.' + speed.key, []); hist.push({ d: Date.now(), bpm: speed.bpm, acc: Math.round(acc * 100) }); store.set('hist.' + speed.key, hist.slice(-50));
+  if (acc >= 0.9) { speed.bpm = Math.min(220, speed.bpm + 5); msg += ` → stark! Nächstes Tempo ${speed.bpm} BPM`; }
+  else if (acc < 0.6) { speed.bpm = Math.max(40, speed.bpm - 5); msg += ` → langsamer: ${speed.bpm} BPM`; }
+  else msg += ' → gleiches Tempo nochmal';
+  store.set('bpm.' + speed.key, speed.bpm); markPracticed();
+  const top = hist.filter(h => h.acc >= 90).reduce((m, h) => Math.max(m, h.bpm), 0);
+  $('spdMsg').textContent = msg; $('spdMsg').className = 'mid ' + (acc >= 0.9 ? 'ok-flash' : acc < 0.6 ? 'bad-flash' : '');
+  $('spdSub').textContent = top ? `Bestwert mit 90 %+: ${top} BPM` : 'Ziel: 90 % im Takt, dann wird es schneller.';
+}
+$('spdAgain').onclick = () => running ? speedRun() : say('Bitte zuerst das Mikrofon starten.', true);
+$('spdSlower').onclick = () => { speed.bpm = Math.max(40, speed.bpm - 5); store.set('bpm.' + speed.key, speed.bpm); $('spdBpm').textContent = speed.bpm + ' BPM'; };
+$('spdFaster').onclick = () => { speed.bpm = Math.min(220, speed.bpm + 5); store.set('bpm.' + speed.key, speed.bpm); $('spdBpm').textContent = speed.bpm + ' BPM'; };
+$('spdStop').onclick = () => { speed.on = false; stopAll(); $('speedCard').hidden = true; };
+
+// ---------- one-minute chord changes
+const wx = { on: false, count: 0, last: null, cand: null, hold: 0, end: 0 };
+const chordNames = Object.keys(G.SHAPES);
+['wxA', 'wxB'].forEach((id, k) => { $(id).innerHTML = chordNames.map(c => `<option ${c === ['G', 'C'][k] ? 'selected' : ''}>${c}</option>`).join(''); $(id).onchange = wxShow; });
+const wxKey = () => 'wx.' + [$('wxA').value, $('wxB').value].sort().join('-');
+function wxShow() {
+  $('wxDg').innerHTML = diagram($('wxA').value) + diagram($('wxB').value);
+  const h = store.get(wxKey(), []); $('wxBest').textContent = h.length ? `Bestwert: ${Math.max(...h.map(x => x.n))} · letzte: ${h.slice(-5).map(x => x.n).join(', ')}` : 'Noch kein Ergebnis für dieses Paar.';
+}
+$('wxStart').onclick = () => {
+  if (!running) { say('Bitte zuerst das Mikrofon starten.', true); return; }
+  if ($('wxA').value === $('wxB').value) { say('Wähle zwei verschiedene Akkorde.', true); return; }
+  Object.assign(wx, { on: true, count: 0, last: null, cand: null, hold: 0, end: performance.now() + 60000 }); $('wxCount').textContent = '0'; $('wxStart').disabled = true;
+};
+function wechselTick() {
+  const left = Math.max(0, wx.end - performance.now());
+  $('wxTime').textContent = `0:${String(Math.ceil(left / 1000)).padStart(2, '0')}`;
+  if (!left) {
+    wx.on = false; $('wxStart').disabled = false; const h = store.get(wxKey(), []), best = h.length ? Math.max(...h.map(x => x.n)) : 0;
+    h.push({ d: Date.now(), n: wx.count }); store.set(wxKey(), h.slice(-30)); markPracticed();
+    $('wxTime').textContent = wx.count > best ? '🏆 Neuer Bestwert!' : 'Zeit um!'; wxShow(); return;
+  }
+  const c = lastChord, A = $('wxA').value, B = $('wxB').value;
+  if (c !== A && c !== B) { wx.cand = null; wx.hold = 0; return; }
+  wx.hold = c === wx.cand ? wx.hold + 1 : 1; wx.cand = c;
+  if (wx.hold === 8 && c !== wx.last) { if (wx.last) { wx.count++; $('wxCount').textContent = wx.count; } wx.last = c; }
+}
+
+// ---------- weak spots: every miss is remembered as "from note -> to note", then drilled
+function weakAdd(seq, j) { if (!seq[j]) return; const w = store.get('weak', {}), k = (j ? seq[j - 1].midi : '') + '>' + seq[j].midi; w[k] = (w[k] || 0) + 1; store.set('weak', w); }
+function weakTop() { return Object.entries(store.get('weak', {})).sort((a, b) => b[1] - a[1]).slice(0, 6); }
+function weakShow() {
+  const top = weakTop();
+  if (top.length) $('wkList').innerHTML = top.map(([k, n]) => { const [a, b] = k.split('>'); return `<div>${a ? noteLabel(+a) + ' → ' : 'Einstieg '}<b>${noteLabel(+b)}</b> · ${n}× daneben</div>`; }).join('');
+}
+$('wkDrill').onclick = () => {
+  const top = weakTop(); if (!top.length) { say('Noch keine Schwachstellen gesammelt.', true); return; }
+  const midis = []; top.forEach(([k]) => { const [a, b] = k.split('>').map(x => x === '' ? null : +x); for (let r = 0; r < 3; r++) { if (a != null) midis.push(a); midis.push(b); } });
+  const tab = G.tabify(midis.map((m, i) => ({ midi: m, start: i, dur: 1 })), false);
+  follow.key = 'weak'; follow.board = null; follow.restart = $('wkDrill').onclick; followStart(tab, [], $('wkDrill').parentElement);
+};
+$('wkClear').onclick = () => { store.set('weak', {}); $('wkList').textContent = 'Liste gelöscht.'; };
 
 newTarget(); showStreak();
 
