@@ -123,6 +123,7 @@ button.c{cursor:pointer;color:var(--fg);font:inherit;font-family:var(--f-display
     <button class="tab" role="tab" aria-selected="false" data-p="stimmen">Stimmen</button>
     <button class="tab" role="tab" aria-selected="false" data-p="ueben">Üben</button>
     <button class="tab" role="tab" aria-selected="false" data-p="jam">Jam-Band</button>
+    <button class="tab" role="tab" aria-selected="false" data-p="radio">Radio</button>
     <button class="tab" role="tab" aria-selected="false" data-p="lieder">Lieder</button>
     <button class="tab" role="tab" aria-selected="false" data-p="gespeichert">Gespeichert</button>
   </div>
@@ -304,6 +305,24 @@ button.c{cursor:pointer;color:var(--fg);font:inherit;font-family:var(--f-display
     </div>
   </section>
 
+  <!-- Radio: key and chords of whatever music is playing in the room -->
+  <section class="panel" id="p-radio" hidden>
+    <p class="note">Lass ein Lied über einen Lautsprecher laufen (Radio, Handy, Spotify), starte das Mikrofon und spiel mit. Die App erkennt nach einigen Sekunden die Tonart und zeigt live die Akkorde.</p>
+    <div class="card center">
+      <div class="sub">Akkord jetzt</div>
+      <div class="big" id="rdNow">–</div>
+      <div class="dg lg" id="rdDg"></div>
+      <div class="prog" id="rdHist" style="justify-content:center"></div>
+    </div>
+    <div class="card">
+      <h2 id="rdKey">Tonart: wird erkannt …</h2>
+      <div class="sub" id="rdScale"></div>
+      <div class="tabbox"><div id="rdBoard"></div></div>
+      <div class="row"><button class="btn ghost small" id="rdReset">Neu erkennen (nächstes Lied)</button></div>
+      <p class="note">Orange = Grundton, Grün = Töne des Akkords, der gerade klingt. Die Pentatonik der Tonart passt fast immer zum Improvisieren.</p>
+    </div>
+  </section>
+
   <!-- Jam: backing band to improvise over -->
   <section class="panel" id="p-jam" hidden>
     <div class="row">
@@ -378,6 +397,23 @@ button.c{cursor:pointer;color:var(--fg);font:inherit;font-family:var(--f-display
         <div class="sub" id="spMelInfo"></div>
         <div class="row"><button class="btn small" id="spMel">Melodie ab hier (20 s) als Tabs</button></div>
       </div>
+      <div class="card" id="earPick">
+        <h2>Nach Gehör heraushören</h2>
+        <p class="note">Spul zu einer Stelle und wähle, was du heraushören willst. Die App spielt die Stelle vor, du suchst die Töne auf der Gitarre. Wenn du hängst, gibt es Tipps in Stufen.</p>
+        <div class="row"><button class="btn small" id="earMel">👂 Melodie heraushören</button><button class="btn small" id="earBass">🎸 Bass zuerst (→ Akkorde)</button></div>
+      </div>
+      <div class="card" id="earCard" hidden>
+        <div class="prow"><h2 id="earTitle">Heraushören</h2><span class="pill" id="earProg">0 / 0</span></div>
+        <div class="mid" id="earMsg">–</div>
+        <div class="sub" id="earHint"></div>
+        <div class="notes" id="earFound"></div>
+        <div class="row">
+          <button class="btn small" id="earPlay">▶ Stelle hören</button>
+          <button class="btn ghost small" id="earTip">💡 Tipp</button>
+          <button class="btn ghost small" id="earSkip">Lösung & weiter</button>
+          <button class="btn ghost small" id="earClose">Schließen</button>
+        </div>
+      </div>
     </div>
     <p class="note">Ehrlich zur Qualität: Die Trennung nutzt, dass Gesang meist in der Mitte des Stereobilds liegt (Mitte/Seiten-Verfahren, keine KI). Instrumente, die auch in der Mitte liegen, etwa Snare oder Bass, bleiben teils im Gesang hörbar. Mono-Aufnahmen lassen sich nicht trennen. Langsameres Tempo macht den Song auch tiefer.</p>
   </section>
@@ -398,11 +434,11 @@ const Core = (() => {
 
   function decimate2(x) { const y = new Float32Array(x.length >> 1); for (let i = 0; i < y.length; i++) y[i] = (x[2*i] + x[2*i+1]) / 2; return y; }
 
-  function detectPitch(buf, sr) {
+  function detectPitch(buf, sr, minF = 60) {
     const N = buf.length, W = N >> 1;
     let rms = 0; for (let i = 0; i < N; i++) rms += buf[i] * buf[i]; rms = Math.sqrt(rms / N);
     if (rms < 0.002) return null; // phone mics are quiet; YIN's own check rejects noise
-    const minTau = Math.max(2, Math.floor(sr / 1200)), maxTau = Math.min(W - 2, Math.floor(sr / 60));
+    const minTau = Math.max(2, Math.floor(sr / 1200)), maxTau = Math.min(W - 2, Math.floor(sr / minF));
     const d = new Float32Array(maxTau + 2);
     for (let tau = 1; tau <= maxTau + 1; tau++) { let s = 0; for (let i = 0; i < W; i++) { const v = buf[i] - buf[i + tau]; s += v * v; } d[tau] = s; }
     const c = new Float32Array(maxTau + 2); c[0] = 1; let run = 0;
@@ -523,6 +559,11 @@ const Core = (() => {
 
   const MAJ = [6.35,2.23,3.48,2.33,4.38,4.09,2.52,5.19,2.39,3.66,2.29,2.88], MIN = [6.33,2.68,3.52,5.38,2.60,3.53,2.54,4.75,3.98,2.69,3.34,3.17];
   function corr(a, b) { const ma = a.reduce((s, x) => s + x) / 12, mb = b.reduce((s, x) => s + x) / 12; let n = 0, da = 0, db = 0; for (let i = 0; i < 12; i++) { n += (a[i]-ma)*(b[i]-mb); da += (a[i]-ma)**2; db += (b[i]-mb)**2; } return da && db ? n / Math.sqrt(da * db) : 0; }
+  function keyFromChroma(h) { // Krumhansl profiles against an averaged chroma vector
+    let best = null;
+    for (let k = 0; k < 12; k++) for (const [minor, prof] of [[false, MAJ], [true, MIN]]) { const r = corr(h, prof.map((_, i) => prof[(i - k + 12) % 12])); if (!best || r > best.r) best = { tonic: k, minor, r }; }
+    return { ...best, name: name(best.tonic) + (best.minor ? '-Moll' : '-Dur') };
+  }
   function detectKey(notes) {
     const h = new Array(12).fill(0); notes.forEach(n => h[n.midi % 12] += n.dur);
     // short melodies usually start and end on the tonic; histogram alone mistakes e.g. C-Dur for D-Moll
@@ -567,7 +608,7 @@ const Core = (() => {
     return { key, chords: out };
   }
 
-  return { NAMES, name, decimate2, detectPitch, noteOf, midiOf, rmsOf, fftMag, chroma, detectChord, toNotes, detectKey, harmonize };
+  return { NAMES, name, decimate2, detectPitch, noteOf, midiOf, rmsOf, fftMag, chroma, detectChord, toNotes, detectKey, keyFromChroma, harmonize, TYPES };
 })();
 
 // ---- guitar: chord shapes, tabs, rhythm
@@ -784,7 +825,7 @@ document.querySelectorAll('.tab').forEach(t => t.onclick = () => showPanel(t.dat
 function showPanel(p) {
   panel = p;
   document.querySelectorAll('.tab').forEach(x => x.setAttribute('aria-selected', x.dataset.p === p));
-  ['idee', 'song', 'hoeren', 'stimmen', 'ueben', 'jam', 'lieder', 'gespeichert'].forEach(x => $('p-' + x).hidden = x !== p);
+  ['idee', 'song', 'hoeren', 'stimmen', 'ueben', 'jam', 'radio', 'lieder', 'gespeichert'].forEach(x => $('p-' + x).hidden = x !== p);
   if (p === 'gespeichert') renderIdeas();
 }
 
@@ -866,8 +907,8 @@ function loop() {
   const half = ctx.sampleRate > 32000, x = half ? Core.decimate2(buf) : buf, sr = half ? ctx.sampleRate / 2 : ctx.sampleRate;
   const p = Core.detectPitch(x.subarray(x.length - 2048), sr);
   lastPitch = p && p.clarity > 0.6 ? Core.noteOf(p.freq) : null; lastMidiF = lastPitch ? Core.midiOf(p.freq) : null;
-  const wantChord = panel === 'hoeren' || (panel === 'ueben' && ['pfad', 'mit', 'wechsel'].includes(learnMode));
-  if (wantChord) { const c = Core.chroma(x.subarray(x.length - 8192), sr), r = c && p ? Core.detectChord(c) : null; lastChord = r && r.best.score > 0.75 ? r.best.name : null; if (panel === 'hoeren') showChord(r, c); }
+  const wantChord = panel === 'hoeren' || panel === 'radio' || (panel === 'ueben' && ['pfad', 'mit', 'wechsel'].includes(learnMode));
+  if (wantChord) { const c = Core.chroma(x.subarray(x.length - 8192), sr), r = c && p ? Core.detectChord(c) : null; lastChord = r && r.best.score > 0.75 ? r.best.name : null; if (panel === 'hoeren') showChord(r, c); if (panel === 'radio') radioTick(c, r); }
   if (panel === 'hoeren') showNote(p);
   if (panel === 'stimmen') tune(p);
   if (panel === 'ueben') practiceTick();
@@ -876,6 +917,7 @@ function loop() {
   if (speed.on && panel === 'ueben') speedTick(level);
   if (wx.on) wechselTick();
   if (jam.on && panel === 'jam') jamTick();
+  if (ear.on && panel === 'song') earTick(level);
   if (rec) { rec.push({ t: ctx.currentTime - recT0, midi: lastMidiF, rms: level }); $('recLive').textContent = 'Aufnahme … ' + (lastPitch ? 'ich höre ' + noteLabel(lastPitch.midi) : 'lauter summen'); }
   requestAnimationFrame(loop);
 }
@@ -1212,6 +1254,8 @@ $('songIn').onchange = async e => {
     song.chords = StemCore.chordTimeline(inst, sr); const bpm = StemCore.tempo(inst, sr);
     const frames = []; for (let i = 0; i + 2048 <= o.vocals.length; i += 512) { const pp = Core.detectPitch(o.vocals.subarray(i, i + 2048), sr); frames.push({ t: i / sr, midi: pp && pp.clarity > 0.75 ? Core.midiOf(pp.freq) : null, rms: Core.rmsOf(o.vocals.subarray(i + 768, i + 1280)) }); }
     song.vocalNotes = Core.toNotes(frames, 0.12);
+    const bf = []; for (let i = 0; i + 4096 <= o.bass.length; i += 1024) { const pp = Core.detectPitch(o.bass.subarray(i, i + 4096), sr, 38); bf.push({ t: i / sr, midi: pp && pp.clarity > 0.7 ? Core.midiOf(pp.freq) : null, rms: Core.rmsOf(o.bass.subarray(i + 1536, i + 2560)) }); }
+    song.bassNotes = Core.toNotes(bf, 0.15);
     $('songProgFill').style.width = '100%'; $('songProg').hidden = true;
     $('songInfo').textContent = `„${song.name}“ · ${fmtT(song.len)} · ca. ${bpm} BPM · ${new Set(song.chords.map(c => c.name)).size} verschiedene Akkorde${ab.numberOfChannels < 2 ? ' · Achtung: Mono-Datei, Trennung nicht möglich' : ''}`;
     $('spStrum').textContent = `Anschlag-Vorschlag bei ${bpm} BPM: ` + (bpm < 95 ? '↓ ↓ ↑ ↑ ↓ ↑ (Folk-Muster)' : '↓ ↑ ↓ ↑ ↓ ↑ ↓ ↑ (Achtel, locker aus dem Handgelenk)');
@@ -1512,6 +1556,92 @@ function jamTick() { // judge each note you play once: in the scale? a chord ton
   const tot = jam.ok + jam.out; $('jmStats').textContent = `${Math.round(100 * jam.ok / tot)} % deiner Töne passen · ${jam.target} Zieltöne getroffen · ${tot} Töne gespielt`;
 }
 jamShow();
+
+// ---------- hear it out: find the notes of a passage by ear, with hints in steps
+const ear = { on: false, mode: 'mel', notes: [], i: 0, hint: 0, t0: 0, t1: 0, stable: 0, wrong: 0, needRelease: false, minRms: 1, silent: 0, srcs: [] };
+const pcDist = (a, b) => { const d = ((b - a) % 12 + 12) % 12; return d > 6 ? d - 12 : d; }; // shortest way between two pitch classes
+function earStart(mode) {
+  if (!song.bufs) return;
+  const t = songPos(), src = mode === 'bass' ? song.bassNotes : song.vocalNotes;
+  const notes = src.filter(n => n.start >= t - 0.05 && n.start < t + 12).slice(0, 8);
+  if (!notes.length) { say(mode === 'bass' ? 'An dieser Stelle wurde kein Bass erkannt. Spul weiter.' : 'An dieser Stelle wurde kein Gesang erkannt. Spul zu einer Stelle mit Gesang.', true); return; }
+  songStop();
+  Object.assign(ear, { on: true, mode, notes, i: 0, hint: 0, t0: Math.max(0, notes[0].start - 0.3), t1: notes.at(-1).start + notes.at(-1).dur + 0.4, stable: 0, wrong: 0, needRelease: false });
+  ear.key = song.vocalNotes.length ? Core.detectKey(song.vocalNotes) : null;
+  $('earTitle').textContent = mode === 'bass' ? 'Bass zuerst' : 'Melodie heraushören';
+  $('earCard').hidden = false; earShow(); earPlay(); $('earCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  if (!running) say('Tipp auf „🎤 Mikrofon starten“, dann hört die App, was du spielst.', true);
+}
+function earPlay() { // the passage, with the part you are looking for in front
+  ear.srcs.forEach(s => { try { s.stop(); } catch (e) {} }); ear.srcs = [];
+  const a = audio(), mix = ear.mode === 'bass' ? { vocals: 0.1, band: 0.25, bass: 1.6 } : { vocals: 1.3, band: 0.45, bass: 0.45 };
+  STEMS.forEach(([k]) => { const s = a.createBufferSource(), g = a.createGain(); s.buffer = song.bufs[k]; g.gain.value = mix[k]; s.connect(g); g.connect(a.destination); s.start(a.currentTime + 0.05, ear.t0, ear.t1 - ear.t0); ear.srcs.push(s); });
+}
+function earShow() {
+  const n = ear.notes.length, i = ear.i;
+  $('earProg').textContent = `${Math.min(i, n)} / ${n}`;
+  $('earFound').innerHTML = ear.notes.slice(0, i).map(nt => `<span>${ear.mode === 'bass' ? Core.name(nt.midi) : noteLabel(nt.midi)}${ear.mode === 'bass' && nt.chord ? ` → <b>${nt.chord}</b>` : ''}</span>`).join('');
+  if (i >= n) { $('earMsg').textContent = '🎉 Alles herausgehört!'; $('earMsg').className = 'mid ok-flash'; $('earHint').textContent = ear.mode === 'bass' ? 'Die Akkorde stehen jetzt neben den Basstönen. Spiel die Stelle nochmal und begleite sie.' : 'Öffne die Stelle unter „Melodie ab hier“ als Tabs, um sie zu üben.'; markPracticed(); return; }
+  $('earMsg').className = 'mid'; $('earMsg').textContent = i ? `Ton ${i + 1}: Such den nächsten ${ear.mode === 'bass' ? 'Basston' : 'Ton'}` : `Such den ersten ${ear.mode === 'bass' ? 'Basston' : 'Ton'}`;
+  $('earHint').textContent = ear.hint ? earHintText() : 'Hör dir die Stelle an und probier auf der Gitarre. Die App sagt dir, ob du höher oder tiefer musst.';
+}
+function earHintText() {
+  const t = ear.notes[ear.i], prev = ear.notes[ear.i - 1], pos = G.tabify([t], true)[0], h = ear.hint;
+  if (h >= 3) return `Lösung: ${ear.mode === 'bass' ? Core.name(t.midi) : noteLabel(t.midi)} · ${STR_NAMES[pos.s]}-Saite, ${pos.f === 0 ? 'leer' : 'Bund ' + pos.f}`;
+  if (!prev) {
+    if (h === 1) return ear.key ? `Tipp 1: Das Lied steht in ${ear.key.name}. Der erste Ton ist sehr wahrscheinlich ein Ton dieser Tonleiter.` : 'Tipp 1: Summ den ersten Ton mit, dann such ihn auf der tiefen E-Saite Bund für Bund.';
+    return `Tipp 2: Such auf der ${STR_NAMES[pos.s]}-Saite.`;
+  }
+  const d = ear.mode === 'bass' ? pcDist(prev.midi, t.midi) : t.midi - prev.midi, a = Math.abs(d);
+  if (h === 1) return d === 0 ? 'Tipp 1: Gleicher Ton wie eben.' : `Tipp 1: ${d > 0 ? '↑ höher' : '↓ tiefer'} als der letzte Ton, ${a <= 2 ? 'kleiner Schritt' : a <= 5 ? 'mittlerer Sprung' : 'großer Sprung'}.`;
+  return d === 0 ? 'Tipp 2: Gleicher Ton wie eben.' : `Tipp 2: genau ${a} Halbtön${a === 1 ? '' : 'e'} ${d > 0 ? 'höher' : 'tiefer'} (${a} Bünde auf derselben Saite).`;
+}
+function earHit() {
+  const t = ear.notes[ear.i];
+  if (ear.mode === 'bass') { const c = song.chords.filter(c => c.start <= t.start + 0.25).at(-1); t.chord = c ? c.name : null; } // the chord that started last
+  ear.i++; ear.hint = 0; ear.stable = ear.wrong = 0; ear.silent = 0; ear.minRms = 1;
+  const nx = ear.notes[ear.i]; ear.needRelease = !!nx && (ear.mode === 'bass' ? nx.midi % 12 === t.midi % 12 : nx.midi === t.midi);
+  earShow();
+}
+function earTick(level) {
+  if (ear.i >= ear.notes.length) return;
+  const t = ear.notes[ear.i], m = lastMidiF;
+  if (ear.needRelease) { ear.silent = m == null ? ear.silent + 1 : 0; ear.minRms = Math.min(ear.minRms, level); if (ear.silent >= 3 || level > ear.minRms * 1.8 + 0.002) ear.needRelease = false; else return; }
+  const ok = m != null && (ear.mode === 'bass' ? Math.abs(pcDist(t.midi, m)) < 0.6 : [0, 12, -12].some(o => Math.abs(m + o - t.midi) < 0.6)); // bass: any octave
+  ear.stable = ok ? ear.stable + 1 : 0; ear.wrong = m != null && !ok ? ear.wrong + 1 : 0;
+  if (ear.stable >= 4) return earHit();
+  if (ear.wrong === 10) { // tell the direction, the most useful by-ear feedback
+    const d = ear.mode === 'bass' ? pcDist(m, t.midi) : t.midi - m;
+    $('earMsg').textContent = `${noteLabel(Math.round(m))} ist es nicht – ${d > 0 ? '↑ höher' : '↓ tiefer'}${Math.abs(d) <= 2 ? ', ganz nah!' : ''}`;
+    $('earMsg').className = 'mid bad-flash';
+  }
+}
+$('earMel').onclick = () => earStart('mel');
+$('earBass').onclick = () => earStart('bass');
+$('earPlay').onclick = earPlay;
+$('earTip').onclick = () => { if (ear.i < ear.notes.length) { ear.hint = Math.min(3, ear.hint + 1); $('earHint').textContent = earHintText(); } };
+$('earSkip').onclick = () => { if (ear.i < ear.notes.length) { ear.notes[ear.i].shown = true; earHit(); } };
+$('earClose').onclick = () => { ear.on = false; ear.srcs.forEach(s => { try { s.stop(); } catch (e) {} }); $('earCard').hidden = true; };
+
+// ---------- radio mode: key and chords of any music in the room
+const radio = { acc: new Array(12).fill(0), frames: 0, key: null, hold: [], shown: null, hist: [] };
+function radioTick(c, r) {
+  if (c) { for (let i = 0; i < 12; i++) radio.acc[i] = radio.acc[i] * 0.998 + c.ch[i]; radio.frames++; } // ~8 s memory
+  if (radio.frames > 120 && radio.frames % 30 === 0) {
+    const k = Core.keyFromChroma(radio.acc);
+    if (!radio.key || k.name !== radio.key.name) { radio.key = k; const iv = k.minor ? [0, 3, 5, 7, 10] : [0, 2, 4, 7, 9];
+      $('rdKey').textContent = 'Tonart: ' + k.name; $('rdScale').textContent = `Zum Improvisieren: ${Core.name(k.tonic)} ${k.minor ? 'Moll' : 'Dur'}-Pentatonik (${iv.map(i => Core.name(k.tonic + i)).join(' ')})`; radio.pcs = iv.map(i => (k.tonic + i) % 12); }
+  } else if (!radio.key) $('rdKey').textContent = `Tonart: wird erkannt … ${Math.min(99, Math.round(radio.frames / 1.2))} %`;
+  radio.hold.push(r && r.best.score > 0.75 ? r.best.name : null); if (radio.hold.length > 14) radio.hold.shift();
+  const cnt = {}; radio.hold.forEach(x => x && (cnt[x] = (cnt[x] || 0) + 1)); const top = Object.entries(cnt).sort((a, b) => b[1] - a[1])[0];
+  if (top && top[1] >= 8 && top[0] !== radio.shown) {
+    radio.shown = top[0]; $('rdNow').textContent = top[0]; $('rdDg').innerHTML = diagram(top[0], 'lg');
+    radio.hist.push(top[0]); radio.hist = radio.hist.slice(-8); $('rdHist').innerHTML = radio.hist.map((h, i) => `<span class="c${i === radio.hist.length - 1 ? ' now' : ''}">${h}</span>`).join('');
+  }
+  if (radio.key && radio.frames % 10 === 0) { const sh = radio.shown && G.parseChord(radio.shown), chordTones = sh ? (Core.TYPES.find(([suf]) => suf === sh.suf) || ['', [0, 4, 7]])[1].map(i => (sh.pc + i) % 12) : [];
+    $('rdBoard').innerHTML = fretboard(radio.pcs, radio.key.tonic, null, chordTones); }
+}
+$('rdReset').onclick = () => { Object.assign(radio, { acc: new Array(12).fill(0), frames: 0, key: null, hold: [], shown: null, hist: [] }); $('rdKey').textContent = 'Tonart: wird erkannt …'; $('rdHist').innerHTML = ''; $('rdNow').textContent = '–'; $('rdDg').innerHTML = ''; $('rdBoard').innerHTML = ''; };
 
 newTarget(); showStreak();
 
