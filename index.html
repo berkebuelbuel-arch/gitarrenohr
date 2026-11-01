@@ -122,6 +122,7 @@ button.c{cursor:pointer;color:var(--fg);font:inherit;font-family:var(--f-display
     <button class="tab" role="tab" aria-selected="false" data-p="hoeren">Hören</button>
     <button class="tab" role="tab" aria-selected="false" data-p="stimmen">Stimmen</button>
     <button class="tab" role="tab" aria-selected="false" data-p="ueben">Üben</button>
+    <button class="tab" role="tab" aria-selected="false" data-p="jam">Jam-Band</button>
     <button class="tab" role="tab" aria-selected="false" data-p="lieder">Lieder</button>
     <button class="tab" role="tab" aria-selected="false" data-p="gespeichert">Gespeichert</button>
   </div>
@@ -301,6 +302,38 @@ button.c{cursor:pointer;color:var(--fg);font:inherit;font-family:var(--f-display
       </div>
       <div class="prog" id="mitProg"></div>
     </div>
+  </section>
+
+  <!-- Jam: backing band to improvise over -->
+  <section class="panel" id="p-jam" hidden>
+    <div class="row">
+      <label>Tonart <select id="jmKey"></select></label>
+      <label>Stil <select id="jmStyle"></select></label>
+      <label>Tempo <input type="range" id="jmBpm" min="50" max="170" value="90"> <span id="jmBpmVal">90</span> BPM</label>
+    </div>
+    <div class="row">
+      <button class="btn" id="jmStart">▶ Band starten</button>
+      <label><input type="checkbox" id="jmDrums" checked> Schlagzeug</label>
+      <label><input type="checkbox" id="jmBass" checked> Bass</label>
+      <label><input type="checkbox" id="jmChords" checked> Akkorde</label>
+    </div>
+    <div class="card center">
+      <div class="sub" id="jmBar">Takt –</div>
+      <div class="big" id="jmNow">–</div>
+      <div class="sub" id="jmNext">Danach: –</div>
+      <div class="prog" id="jmProg" style="justify-content:center"></div>
+    </div>
+    <div class="card">
+      <h2 id="jmScaleT">Passende Tonleiter</h2>
+      <div class="sub" id="jmScaleInfo"></div>
+      <div class="tabbox"><div id="jmBoard"></div></div>
+      <p class="note">Orange = Grundton der Tonart. Grün = Töne des Akkords, der gerade läuft (Zieltöne): Darauf zu landen klingt am besten. Grau = übrige Töne der Tonleiter.</p>
+    </div>
+    <div class="card center" id="jmFeed" hidden>
+      <div class="mid" id="jmMsg">Spiel los …</div>
+      <div class="sub" id="jmStats"></div>
+    </div>
+    <p class="note">Tipp: Starte das Mikrofon, dann bewertet die App jeden Ton, den du spielst: passt er zur Tonleiter, triffst du einen Zielton? Kopfhörer helfen, damit das Mikrofon die Band nicht hört.</p>
   </section>
 
   <!-- Lieder -->
@@ -751,7 +784,7 @@ document.querySelectorAll('.tab').forEach(t => t.onclick = () => showPanel(t.dat
 function showPanel(p) {
   panel = p;
   document.querySelectorAll('.tab').forEach(x => x.setAttribute('aria-selected', x.dataset.p === p));
-  ['idee', 'song', 'hoeren', 'stimmen', 'ueben', 'lieder', 'gespeichert'].forEach(x => $('p-' + x).hidden = x !== p);
+  ['idee', 'song', 'hoeren', 'stimmen', 'ueben', 'jam', 'lieder', 'gespeichert'].forEach(x => $('p-' + x).hidden = x !== p);
   if (p === 'gespeichert') renderIdeas();
 }
 
@@ -842,6 +875,7 @@ function loop() {
   if (free.on && panel === 'ueben') freeTick();
   if (speed.on && panel === 'ueben') speedTick(level);
   if (wx.on) wechselTick();
+  if (jam.on && panel === 'jam') jamTick();
   if (rec) { rec.push({ t: ctx.currentTime - recT0, midi: lastMidiF, rms: level }); $('recLive').textContent = 'Aufnahme … ' + (lastPitch ? 'ich höre ' + noteLabel(lastPitch.midi) : 'lauter summen'); }
   requestAnimationFrame(loop);
 }
@@ -1397,6 +1431,87 @@ $('wkDrill').onclick = () => {
   follow.key = 'weak'; follow.board = null; follow.restart = $('wkDrill').onclick; followStart(tab, [], $('wkDrill').parentElement);
 };
 $('wkClear').onclick = () => { store.set('weak', {}); $('wkList').textContent = 'Liste gelöscht.'; };
+
+// ---------- jam band: drums, bass and chords in a loop, with the scale to improvise over
+// progressions as [semitones above the key, chord quality]; bass/comp/drums as 8th-note steps per bar
+const JAM_STYLES = [
+  { t: 'Blues-Shuffle (12 Takte)', minor: false, swing: true, prog: [[0, '7'], [0, '7'], [0, '7'], [0, '7'], [5, '7'], [5, '7'], [0, '7'], [0, '7'], [7, '7'], [5, '7'], [0, '7'], [7, '7']], scale: 6, alt: 'Moll-Pentatonik/Blues klingt rau, Dur-Pentatonik süßer',
+    drums: { k: [0, 4], s: [2, 6], h: [0, 1, 2, 3, 4, 5, 6, 7] }, bass: [[0, 0], [2, 4], [4, 7], [6, 9]], comp: [0, 2, 4, 6] },
+  { t: 'Rock (I – bVII – IV – I)', minor: false, prog: [[0, ''], [10, ''], [5, ''], [0, '']], scale: 5, alt: 'Moll-Pentatonik',
+    drums: { k: [0, 3, 4], s: [2, 6], h: [0, 1, 2, 3, 4, 5, 6, 7] }, bass: [[0, 0], [1, 0], [2, 0], [3, 0], [4, 0], [5, 0], [6, 0], [7, 0]], comp: [0, 3, 4, 6] },
+  { t: 'Pop (I – V – vi – IV)', minor: false, prog: [[0, ''], [7, ''], [9, 'm'], [5, '']], scale: 4, alt: 'Dur-Pentatonik, für mehr Farbe die Dur-Tonleiter',
+    drums: { k: [0, 4, 5], s: [2, 6], h: [0, 1, 2, 3, 4, 5, 6, 7] }, bass: [[0, 0], [3, 0], [4, 7], [6, 0]], comp: [0, 2, 3, 5, 6] },
+  { t: 'Ballade (vi – IV – I – V)', minor: false, prog: [[9, 'm'], [5, ''], [0, ''], [7, '']], scale: 0, alt: 'Dur-Tonleiter, langsam und mit Pausen',
+    drums: { k: [0, 5], s: [4], h: [0, 2, 4, 6] }, bass: [[0, 0], [4, 7]], comp: [0, 4] },
+  { t: 'Moll-Groove (i – VI – VII – i)', minor: true, prog: [[0, 'm'], [8, ''], [10, ''], [0, 'm']], scale: 1, alt: 'Moll-Pentatonik',
+    drums: { k: [0, 3, 4], s: [2, 6], h: [0, 1, 2, 3, 4, 5, 6, 7] }, bass: [[0, 0], [3, 0], [4, 0], [6, 7]], comp: [0, 3, 6] },
+  { t: 'Funk-Vamp (Dorisch, i7 – IV7)', minor: true, prog: [[0, 'm7'], [0, 'm7'], [5, '7'], [5, '7']], scale: 7, alt: 'Moll-Pentatonik geht immer',
+    drums: { k: [0, 3, 5], s: [2, 6], h: [0, 1, 2, 3, 4, 5, 6, 7] }, bass: [[0, 0], [1, 12], [3, 0], [5, 10], [6, 0]], comp: [1, 3, 5, 7] },
+  { t: 'Spanisch (i – VII – VI – V)', minor: true, prog: [[0, 'm'], [10, ''], [8, ''], [7, '']], scale: 2, alt: 'Über dem letzten Akkord: Spanisch (Phrygisch-Dur)',
+    drums: { k: [0, 4], s: [2, 6], h: [0, 2, 4, 6] }, bass: [[0, 0], [4, 7]], comp: [0, 1, 2, 4, 6] }];
+$('jmKey').innerHTML = Core.NAMES.map((n, i) => `<option value="${i}" ${i === 9 ? 'selected' : ''}>${n}</option>`).join('');
+$('jmStyle').innerHTML = JAM_STYLES.map((s, i) => `<option value="${i}">${s.t}</option>`).join('');
+const jam = { on: false, step: 0, next: 0, timer: null, queue: [], bar: -1, ok: 0, out: 0, target: 0, cur: null, n: 0, counted: false };
+const jamProg = () => { const st = JAM_STYLES[$('jmStyle').value], k = +$('jmKey').value; return st.prog.map(([iv, q]) => ({ name: Core.name(k + iv) + q, root: (k + iv) % 12, q })); };
+const chordPcs = c => ({ '': [0, 4, 7], m: [0, 3, 7], 7: [0, 4, 7, 10], m7: [0, 3, 7, 10] }[c.q]).map(i => (c.root + i) % 12);
+function jamShow(chord) {
+  const st = JAM_STYLES[$('jmStyle').value], k = +$('jmKey').value, [snm, iv] = G.SCALES[st.scale], pcs = iv.map(i => (k + i) % 12);
+  $('jmScaleT').textContent = `Spiel dazu: ${Core.name(k)} ${snm}`;
+  $('jmScaleInfo').textContent = `Töne: ${pcs.map(Core.name).join(' ')} · Alternative: ${st.alt}`;
+  $('jmBoard').innerHTML = fretboard(pcs, k, null, chord ? chordPcs(chord) : []);
+  if (!jam.on) $('jmProg').innerHTML = jamProg().map((c, i) => `<span class="c" id="jp${i}">${c.name}</span>`).join('');
+  jam.pcs = pcs;
+}
+['jmKey', 'jmStyle'].forEach(id => $(id).onchange = () => { if (jam.on) { jamStop(); jamStart(); } else jamShow(); });
+$('jmBpm').oninput = () => $('jmBpmVal').textContent = $('jmBpm').value;
+let noiseBuf = null;
+function drum(kind, t) {
+  const a = audio(), g = a.createGain(); g.connect(a.destination);
+  if (kind === 'k') { const o = a.createOscillator(); o.frequency.setValueAtTime(130, t); o.frequency.exponentialRampToValueAtTime(42, t + 0.12); g.gain.setValueAtTime(0.9, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.25); o.connect(g); o.start(t); o.stop(t + 0.26); return; }
+  if (!noiseBuf) { noiseBuf = a.createBuffer(1, a.sampleRate * 0.3, a.sampleRate); const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; }
+  const n = a.createBufferSource(), f = a.createBiquadFilter(); n.buffer = noiseBuf; f.type = 'highpass'; f.frequency.value = kind === 'h' ? 7000 : 1500;
+  const len = kind === 'h' ? 0.04 : 0.16; g.gain.setValueAtTime(kind === 'h' ? 0.12 : 0.45, t); g.gain.exponentialRampToValueAtTime(0.001, t + len);
+  n.connect(f); f.connect(g); n.start(t); n.stop(t + len + 0.01);
+}
+function jamStart() {
+  const a = audio(); Object.assign(jam, { on: true, step: 0, next: a.currentTime + 0.15, queue: [], bar: -1, ok: 0, out: 0, target: 0, cur: null, n: 0, counted: false });
+  jam.prog = jamProg(); jam.style = JAM_STYLES[$('jmStyle').value]; $('jmProg').innerHTML = jam.prog.map((c, i) => `<span class="c" id="jp${i}">${c.name}</span>`).join('');
+  jam.timer = setInterval(jamSchedule, 25); requestAnimationFrame(jamUi); $('jmStart').textContent = '■ Band stoppen'; $('jmFeed').hidden = !running; jamShow(jam.prog[0]); markPracticed();
+}
+function jamStop() { clearInterval(jam.timer); jam.on = false; $('jmStart').textContent = '▶ Band starten'; stopAll(); }
+$('jmStart').onclick = () => jam.on ? jamStop() : jamStart();
+function jamSchedule() {
+  const beat = 60 / +$('jmBpm').value, st = jam.style;
+  while (jam.next < ctx.currentTime + 0.15) {
+    const k = jam.step, s8 = k % 8, bar = Math.floor(k / 8), c = jam.prog[bar % jam.prog.length], t = jam.next;
+    if ($('jmDrums').checked) ['k', 's', 'h'].forEach(d => st.drums[d].includes(s8) && drum(d, t));
+    if ($('jmBass').checked) st.bass.forEach(([s, iv]) => s === s8 && pluck(28 + ((c.root - 4 + 12) % 12) + iv, t, 0.9)); // bass root between E1 and D#2
+    if ($('jmChords').checked && st.comp.includes(s8)) strum(c.name, t, s8 === 0 ? 0.3 : 0.18);
+    if (s8 === 0) jam.queue.push({ t, bar });
+    jam.step++; jam.next += st.swing ? (s8 % 2 ? beat / 3 : beat * 2 / 3) : beat / 2; // shuffle: long-short eighths
+  }
+}
+function jamUi() {
+  if (!jam.on) return;
+  while (jam.queue.length && jam.queue[0].t <= ctx.currentTime) {
+    const q = jam.queue.shift(), L = jam.prog.length, i = q.bar % L, c = jam.prog[i];
+    $('jmBar').textContent = `Takt ${i + 1} von ${L}`; $('jmNow').textContent = c.name; $('jmNext').textContent = 'Danach: ' + jam.prog[(i + 1) % L].name;
+    document.querySelectorAll('#jmProg .c').forEach((el, j) => el.classList.toggle('now', j === i)); jam.chord = c; jamShow(c);
+  }
+  requestAnimationFrame(jamUi);
+}
+function jamTick() { // judge each note you play once: in the scale? a chord tone of the current chord?
+  $('jmFeed').hidden = false;
+  const m = lastMidiF == null ? null : Math.round(lastMidiF);
+  if (m !== jam.cur) { jam.cur = m; jam.n = 0; jam.counted = false; return; }
+  if (m == null || jam.counted || ++jam.n < 5 || !jam.pcs) return;
+  jam.counted = true; const pc = ((m % 12) + 12) % 12, inScale = jam.pcs.includes(pc), isTarget = jam.chord && chordPcs(jam.chord).includes(pc);
+  if (inScale || isTarget) jam.ok++; else jam.out++; if (isTarget) jam.target++;
+  $('jmMsg').textContent = isTarget ? `🎯 ${noteLabel(m)} Zielton von ${jam.chord.name}` : inScale ? `✓ ${noteLabel(m)} passt` : `✗ ${noteLabel(m)} passt nicht`;
+  $('jmMsg').className = 'mid ' + (inScale || isTarget ? 'ok-flash' : 'bad-flash');
+  const tot = jam.ok + jam.out; $('jmStats').textContent = `${Math.round(100 * jam.ok / tot)} % deiner Töne passen · ${jam.target} Zieltöne getroffen · ${tot} Töne gespielt`;
+}
+jamShow();
 
 newTarget(); showStreak();
 
