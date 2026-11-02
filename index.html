@@ -401,7 +401,7 @@ button.c{cursor:pointer;color:var(--fg);font:inherit;font-family:var(--f-display
       <div class="card"><h2>Dein Lied</h2><div id="swFacts"></div></div>
       <div class="card"><h2>Dein Song mit Band</h2>
         <p class="sub">Deine Aufnahme mit Schlagzeug, Bass und Gitarre (Akkorde im Strumming-Muster) darunter: so ungefähr klingt dein Song fertig.</p>
-        <div class="row"><label>Akkorde <select id="swArrCh"></select></label><label>Strumming <select id="swArrPat"></select></label><label>Schlagzeug <select id="swArrDr"></select></label></div>
+        <div class="row"><label>Akkorde <select id="swArrCh"></select></label><label>Strumming <select id="swArrPat"></select></label><label>Schlagzeug <select id="swArrDr"></select></label><label><input type="checkbox" id="swKeys" checked> E-Piano</label></div>
         <div class="row"><button class="btn" id="swArrPlay">▶ Mit Band anhören</button><button class="btn ghost" id="swArrStop">■ Stopp</button></div>
         <div class="row"><button class="btn ghost" id="swSaveMix">💾 Song mit Band speichern</button><button class="btn ghost" id="swSaveRec">💾 Nur meine Aufnahme speichern</button></div>
         <div class="sub" id="swArrInfo"></div></div>
@@ -1141,20 +1141,61 @@ function showPanel(p) {
 let ctx = null;
 function audio() { if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)(); if (ctx.state === 'suspended' && !ctx.startRendering) ctx.resume(); return ctx; } // an offline render context starts itself
 const pluckCache = {}, playing = [];
+// mixing desk per audio context: guitar (warm filter + chorus), keys, drums -> reverb + gentle compressor -> speakers
+const buses = new WeakMap();
+function bus(a = audio()) {
+  if (buses.has(a)) return buses.get(a);
+  const comp = a.createDynamicsCompressor(); comp.threshold.value = -16; comp.ratio.value = 3; comp.attack.value = 0.01; comp.release.value = 0.25;
+  const master = a.createGain(); master.gain.value = 0.65; master.connect(comp); comp.connect(a.destination);
+  const sr = a.sampleRate, ir = a.createBuffer(2, Math.floor(sr * 2.2), sr); // soft room: decaying, darkened noise
+  for (let c = 0; c < 2; c++) { const d = ir.getChannelData(c); let lp = 0; for (let i = 0; i < d.length; i++) { lp += 0.25 * ((Math.random() * 2 - 1) - lp); d[i] = lp * Math.exp(-i / sr * 2.8); } }
+  const rev = a.createConvolver(); rev.buffer = ir; const wet = a.createGain(); wet.gain.value = 0.9; rev.connect(wet); wet.connect(master);
+  const send = (node, amt) => { const g = a.createGain(); g.gain.value = amt; node.connect(g); g.connect(rev); };
+  const gtr = a.createBiquadFilter(); gtr.type = 'lowpass'; gtr.frequency.value = 2600; gtr.Q.value = 0.4; // clean neck pickup, no harsh top
+  const cho = a.createDelay(0.05); cho.delayTime.value = 0.014; const lfo = a.createOscillator(), depth = a.createGain(); lfo.frequency.value = 0.7; depth.gain.value = 0.0025; lfo.connect(depth); depth.connect(cho.delayTime); lfo.start();
+  const gOut = a.createGain(); gOut.gain.value = 2.6; gtr.connect(gOut); // the low-pass takes level away, give it back
+  const choG = a.createGain(); choG.gain.value = 0.55; gOut.connect(master); gOut.connect(cho); cho.connect(choG); choG.connect(master); send(gOut, 0.35);
+  const keys = a.createGain(); keys.connect(master); send(keys, 0.3);
+  const drums = a.createGain(); drums.connect(master); const drumsWet = a.createGain(); drumsWet.connect(rev); drumsWet.gain.value = 0.25; drums.connect(drumsWet);
+  const dry = a.createGain(); dry.connect(master); send(dry, 0.12);
+  const b = { gtr, keys, drums, dry, rev }; buses.set(a, b); return b;
+}
 function pluckBuf(midi) {
   const a = audio(), key = midi + '@' + a.sampleRate; if (pluckCache[key]) return pluckCache[key];
-  const sr = a.sampleRate, f = 440 * 2 ** ((midi - 69) / 12), N = Math.max(2, Math.round(sr / f)), len = Math.floor(sr * 1.8);
+  const sr = a.sampleRate, f = 440 * 2 ** ((midi - 69) / 12), N = Math.max(2, Math.round(sr / f)), len = Math.floor(sr * 2.2);
   const b = a.createBuffer(1, len, sr), d = b.getChannelData(0), ring = new Float32Array(N);
-  for (let i = 0; i < N; i++) ring[i] = Math.random() * 2 - 1;
-  const damp = 0.997 - Math.min(0.006, f / 150000);
-  for (let i = 0, j = 0; i < len; i++) { const n = (j + 1) % N, v = ring[j]; ring[j] = damp * 0.5 * (v + ring[n]); d[i] = v * 0.35; j = n; } // Karplus-Strong
+  let lp = 0, mx = 0; for (let i = 0; i < 3 * N; i++) { lp += 0.35 * ((Math.random() * 2 - 1) - lp); ring[i % N] = lp; } // soft finger/pick: low-passed excitation
+  const pos = Math.max(1, Math.round(N * 0.18)), ex = ring.map((v, i) => v - ring[(i + pos) % N]); ring.set(ex); ring.forEach(v => mx = Math.max(mx, Math.abs(v))); // pluck position: less buzz
+  const damp = 0.9985 - Math.min(0.004, f / 250000);
+  for (let i = 0, j = 0; i < len; i++) { const n = (j + 1) % N, v = ring[j]; ring[j] = damp * (0.55 * v + 0.45 * ring[n]); d[i] = v / mx * 0.3 * Math.min(1, (len - i) / (sr * 0.3)); j = n; } // Karplus-Strong
   return pluckCache[key] = b;
 }
-function pluck(midi, t, vol = 1) {
+function pluck(midi, t, vol = 1, out) {
   const a = audio(), s = a.createBufferSource(), g = a.createGain();
-  s.buffer = pluckBuf(midi); g.gain.value = vol; s.connect(g); g.connect(a.destination); s.start(t); playing.push(s);
+  s.buffer = pluckBuf(midi); g.gain.value = vol; s.connect(g); g.connect(out || bus(a).gtr); s.start(t); playing.push(s);
 }
-function strum(name, t, vol = 0.55) { const sh = G.chordShape(name); if (sh) G.voicing(sh).forEach((m, i) => pluck(m, t + i * 0.02, vol)); }
+const hum = (x = 0.006) => (Math.random() - 0.5) * 2 * x; // human timing
+function strum(name, t, vol = 0.55) { const sh = G.chordShape(name); if (sh) G.voicing(sh).forEach((m, i) => pluck(m, t + i * 0.022 + hum(0.004), vol * (1 - i * 0.05))); }
+// round electric bass: sine + soft triangle through a low-pass that closes after the attack
+function bass(midi, t, dur, vol = 0.13) {
+  const a = audio(), f = 440 * 2 ** ((midi - 69) / 12), o1 = a.createOscillator(), o2 = a.createOscillator(), lp = a.createBiquadFilter(), g = a.createGain();
+  o1.frequency.value = f; o2.type = 'triangle'; o2.frequency.value = f; lp.type = 'lowpass'; lp.frequency.setValueAtTime(900, t); lp.frequency.exponentialRampToValueAtTime(260, t + 0.25);
+  g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + 0.012); g.gain.setTargetAtTime(vol * 0.6, t + 0.05, 0.3); g.gain.setTargetAtTime(0, t + dur * 0.92, 0.04);
+  o1.connect(lp); o2.connect(lp); lp.connect(g); g.connect(bus(a).dry); [o1, o2].forEach(o => { o.start(t); o.stop(t + dur + 0.3); playing.push(o); });
+}
+// electric piano (Rhodes-like FM): sine carrier, decaying modulator for the bark, a faint bell partial
+const CHORD_IV = { '': [0, 4, 7], m: [0, 3, 7], 7: [0, 4, 7, 10], maj7: [0, 4, 7, 11], m7: [0, 3, 7, 10], m9: [0, 3, 7, 10, 14], 9: [0, 4, 7, 10, 14], maj9: [0, 4, 7, 11, 14], sus2: [0, 2, 7], sus4: [0, 5, 7], dim: [0, 3, 6] };
+function keys(name, t, dur, vol = 0.12) {
+  const c = G.parseChord(name); if (!c) return;
+  const iv = CHORD_IV[c.suf] || [0, 4, 7], base = 52 + ((c.pc - 4 + 12) % 12); // root E3..D#4; the bass carries the low root
+  (iv.length > 3 ? iv.slice(1) : iv).forEach((i, k) => {
+    const a = audio(), f = 440 * 2 ** ((base + i - 69) / 12), car = a.createOscillator(), mod = a.createOscillator(), mg = a.createGain(), bell = a.createOscillator(), bg = a.createGain(), g = a.createGain(), st = t + k * 0.008;
+    car.frequency.value = f; mod.frequency.value = f; mg.gain.setValueAtTime(f * 1.6, st); mg.gain.setTargetAtTime(f * 0.15, st, 0.25); mod.connect(mg); mg.connect(car.frequency);
+    bell.frequency.value = f * 4.02; bg.gain.setValueAtTime(vol * 0.12, st); bg.gain.setTargetAtTime(0, st, 0.08); bell.connect(bg); bg.connect(bus(a).keys);
+    g.gain.setValueAtTime(0, st); g.gain.linearRampToValueAtTime(vol, st + 0.006); g.gain.setTargetAtTime(vol * 0.35, st + 0.01, 0.9); g.gain.setTargetAtTime(0, st + dur, 0.12);
+    car.connect(g); g.connect(bus(a).keys); [car, mod, bell].forEach(o => { o.start(st); o.stop(st + dur + 0.8); playing.push(o); });
+  });
+}
 function click(t, accent) {
   const a = audio(), o = a.createOscillator(), g = a.createGain();
   o.frequency.value = accent ? 1700 : 1100; g.gain.setValueAtTime(0.25, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
@@ -1838,13 +1879,17 @@ function jamShow(chord) {
 ['jmKey', 'jmStyle'].forEach(id => $(id).onchange = () => { if (jam.on) { jamStop(); jamStart(); } else jamShow(); });
 $('jmBpm').oninput = () => $('jmBpmVal').textContent = $('jmBpm').value;
 let noiseBuf = null;
-function drum(kind, t) {
-  const a = audio(), g = a.createGain(); g.connect(a.destination);
-  if (kind === 'k') { const o = a.createOscillator(); o.frequency.setValueAtTime(130, t); o.frequency.exponentialRampToValueAtTime(42, t + 0.12); g.gain.setValueAtTime(0.9, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.25); o.connect(g); o.start(t); o.stop(t + 0.26); playing.push(o); return; }
-  if (!noiseBuf) { noiseBuf = a.createBuffer(1, a.sampleRate * 0.3, a.sampleRate); const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; }
-  const n = a.createBufferSource(), f = a.createBiquadFilter(); n.buffer = noiseBuf; f.type = 'highpass'; f.frequency.value = kind === 'h' ? 7000 : 1500;
-  const len = kind === 'h' ? 0.04 : 0.16; g.gain.setValueAtTime(kind === 'h' ? 0.12 : 0.45, t); g.gain.exponentialRampToValueAtTime(0.001, t + len);
-  n.connect(f); f.connect(g); n.start(t); n.stop(t + len + 0.01); playing.push(n);
+// soft drum kit: round kick, snare with body + snappy noise into the room, quiet hi-hat; vel 0..1
+function drum(kind, t, vel = 1) {
+  const a = audio(), out = bus(a).drums, g = a.createGain(); g.connect(out);
+  if (!noiseBuf || noiseBuf.sampleRate !== a.sampleRate) { noiseBuf = a.createBuffer(1, a.sampleRate * 0.5, a.sampleRate); const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; }
+  const tone = (type, f0, f1, len, v) => { const o = a.createOscillator(), og = a.createGain(); o.type = type; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + len * 0.5);
+    og.gain.setValueAtTime(v, t); og.gain.exponentialRampToValueAtTime(0.001, t + len); o.connect(og); og.connect(g); o.start(t); o.stop(t + len + 0.02); playing.push(o); };
+  const noise = (type, f, q, len, v) => { const n = a.createBufferSource(), fl = a.createBiquadFilter(), ng = a.createGain(); n.buffer = noiseBuf; fl.type = type; fl.frequency.value = f; fl.Q.value = q;
+    ng.gain.setValueAtTime(v, t); ng.gain.exponentialRampToValueAtTime(0.001, t + len); n.connect(fl); fl.connect(ng); ng.connect(g); n.start(t); n.stop(t + len + 0.02); playing.push(n); };
+  if (kind === 'k') { tone('sine', 110, 46, 0.45, 0.7 * vel); noise('lowpass', 1800, 0.7, 0.012, 0.15 * vel); }
+  if (kind === 's') { tone('triangle', 200, 170, 0.12, 0.22 * vel); noise('bandpass', 2400, 0.6, 0.2, 0.32 * vel); noise('highpass', 6000, 0.5, 0.06, 0.08 * vel); }
+  if (kind === 'h') noise('highpass', 9000, 0.6, 0.035, 0.07 * vel);
 }
 function jamStart() {
   const a = audio(); Object.assign(jam, { on: true, step: 0, next: a.currentTime + 0.15, queue: [], bar: -1, ok: 0, out: 0, target: 0, cur: null, n: 0, counted: false });
@@ -1858,8 +1903,9 @@ function jamSchedule() {
   while (jam.next < ctx.currentTime + 0.15) {
     const k = jam.step, s8 = k % 8, bar = Math.floor(k / 8), c = jam.prog[bar % jam.prog.length], t = jam.next;
     if ($('jmDrums').checked) ['k', 's', 'h'].forEach(d => st.drums[d].includes(s8) && drum(d, t));
-    if ($('jmBass').checked) st.bass.forEach(([s, iv]) => s === s8 && pluck(28 + ((c.root - 4 + 12) % 12) + iv, t, 0.9)); // bass root between E1 and D#2
+    if ($('jmBass').checked) st.bass.forEach(([s, iv]) => s === s8 && bass(28 + ((c.root - 4 + 12) % 12) + iv, t, beat * 0.9)); // bass root between E1 and D#2
     if ($('jmChords').checked && st.comp.includes(s8)) strum(c.name, t, s8 === 0 ? 0.3 : 0.18);
+    if ($('jmChords').checked && s8 === 0 && c.q !== '' && c.q !== 'm') keys(c.name, t, beat * 4 - 0.05); // 7th/9th styles get an electric piano pad
     if (s8 === 0) jam.queue.push({ t, bar });
     jam.step++; jam.next += st.swing ? (s8 % 2 ? beat / 3 : beat * 2 / 3) : beat / 2; // shuffle: long-short eighths
   }
@@ -1994,11 +2040,11 @@ $('stSel').onchange = () => { if (st.on) strumStop(); strumShow(); };
 let chuckBuf = null;
 function strumSlot(sym, chord, t, vol = 0.5) {
   const sh = G.chordShape(chord), v = sh ? G.voicing(sh) : [];
-  if (sym === 'D') v.forEach((m, i) => pluck(m, t + i * 0.012, vol));
-  if (sym === 'U') v.slice(-4).reverse().forEach((m, i) => pluck(m, t + i * 0.012, vol * 0.65));
+  if (sym === 'D') v.forEach((m, i) => pluck(m, t + i * 0.016, vol * (1 - i * 0.04)));
+  if (sym === 'U') v.slice(-4).reverse().forEach((m, i) => pluck(m, t + i * 0.014, vol * 0.5));
   if (sym === 'B' && v.length) pluck(v[0], t, vol * 1.3);
   if (sym === 'x') { const a = audio(); if (!chuckBuf) { chuckBuf = a.createBuffer(1, a.sampleRate * 0.06, a.sampleRate); const d = chuckBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.exp(-i / d.length * 5); }
-    const n = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain(); n.buffer = chuckBuf; f.type = 'bandpass'; f.frequency.value = 1800; g.gain.value = vol * 1.4; n.connect(f); f.connect(g); g.connect(a.destination); n.start(t); playing.push(n); }
+    const n = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain(); n.buffer = chuckBuf; f.type = 'bandpass'; f.frequency.value = 1800; g.gain.value = vol * 0.8; n.connect(f); f.connect(g); g.connect(bus(a).drums); n.start(t); playing.push(n); }
 }
 const slotDur = (s, beat, i) => { const d = beat * s.beats / s.g; return s.swing ? (i % 2 ? d * 2 / 3 : d * 4 / 3) : d; };
 // mode 'demo': loops with guitar; 'test': one bar count-in, then 4 bars you play (click only); opt.once: play prog once (songwriter)
@@ -2212,14 +2258,15 @@ function swSchedule(T, extra) { // extra(t, bar, k, chord) adds a part per bar
   const bar = 60 / r.bpm * r.top.beats, steps = r.top.beats === 4 ? 16 : 12, gr = r.top.beats === 4 ? dk : dk && { k: [0], s: [6], h: [0, 2, 4, 6, 8, 10] };
   const { x, sr } = sw.raw, b = a.createBuffer(1, x.length, sr); b.copyToChannel(x, 0);
   let peak = 0; for (let i = 0; i < x.length; i++) peak = Math.max(peak, Math.abs(x[i]));
-  const src = a.createBufferSource(), g = a.createGain(); src.buffer = b; g.gain.value = 0.9 / (peak || 1); src.connect(g); g.connect(a.destination); src.start(T); playing.push(src);
+  const src = a.createBufferSource(), g = a.createGain(); src.buffer = b; g.gain.value = 0.9 / (peak || 1); src.connect(g); g.connect(bus(a).dry); src.start(T); playing.push(src);
   const dur = x.length / sr;
   for (let k = 0; r.t0 + k * bar < dur; k++) {
     const t = T + r.t0 + k * bar, ch = row.chords[k % row.chords.length], c = G.parseChord(ch);
     if (extra) extra(t, bar, k, ch);
-    let u = t; for (let i = 0; i < pat.g; i++) { if (pat.p[i] !== '-') strumSlot(pat.p[i], ch, u, extra ? 0.18 : 0.3); u += slotDur(pat, bar / pat.beats, i); }
-    if (gr) ['k', 's', 'h'].forEach(d => gr[d].forEach(st => drum(d, t + st * bar / steps)));
-    if (c) [0, steps / 2].forEach(st => pluck(28 + ((c.pc - 4 + 12) % 12), t + st * bar / steps, 0.8)); // bass: root on 1 and in the middle of the bar
+    let u = t; for (let i = 0; i < pat.g; i++) { if (pat.p[i] !== '-') strumSlot(pat.p[i], ch, u + hum(), (extra ? 0.16 : 0.26) * ($('swKeys').checked ? 0.75 : 1)); u += slotDur(pat, bar / pat.beats, i); }
+    if (gr) ['k', 's', 'h'].forEach(d => gr[d].forEach(st => drum(d, t + st * bar / steps + hum(d === 'h' ? 0.008 : 0.003), d === 'h' ? (st % 4 ? 0.55 : 1) * (0.8 + Math.random() * 0.2) : 1)));
+    if (c) [0, steps / 2].forEach(st => bass(28 + ((c.pc - 4 + 12) % 12), t + st * bar / steps, bar / 2 - 0.02)); // bass: root on 1 and in the middle of the bar
+    if ($('swKeys').checked) keys(ch, t, bar - 0.05);
   }
   return T + dur + 1;
 }
