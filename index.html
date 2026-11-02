@@ -189,6 +189,12 @@ button.c{cursor:pointer;color:var(--fg);font:inherit;font-family:var(--f-display
       <div class="sub" id="chordSub">Schlag einen Akkord an und lass ihn klingen</div>
       <div class="chips" id="pcChips"></div>
       <div class="dg lg" id="chordDg"></div>
+    </div>
+    <div class="card">
+      <h2>Auf dem Griffbrett</h2>
+      <div class="sub" id="hrInfo">Spiel einen Ton oder Akkord.</div>
+      <div class="tabbox"><div id="hrBoard"></div></div>
+      <p class="note">Gefüllt = wo du sehr wahrscheinlich gespielt hast. Gestrichelt = andere Stellen mit genau demselben Ton. Ein Ton klingt auf mehreren Saiten gleich, deshalb rät die App die Stelle anhand deiner letzten Griffe und, bei Akkorden, anhand der gehörten Oktaven.</p>
       <div class="list" id="chordList" hidden></div>
     </div>
     <p class="note">Deutsche Notennamen: H = englisch B, B = englisch B♭.</p>
@@ -438,7 +444,7 @@ const Core = (() => {
     const N = buf.length, W = N >> 1;
     let rms = 0; for (let i = 0; i < N; i++) rms += buf[i] * buf[i]; rms = Math.sqrt(rms / N);
     if (rms < 0.002) return null; // phone mics are quiet; YIN's own check rejects noise
-    const minTau = Math.max(2, Math.floor(sr / 1200)), maxTau = Math.min(W - 2, Math.floor(sr / minF));
+    const minTau = Math.max(2, Math.floor(sr / 1500)), maxTau = Math.min(W - 2, Math.floor(sr / minF));
     const d = new Float32Array(maxTau + 2);
     for (let tau = 1; tau <= maxTau + 1; tau++) { let s = 0; for (let i = 0; i < W; i++) { const v = buf[i] - buf[i + tau]; s += v * v; } d[tau] = s; }
     const c = new Float32Array(maxTau + 2); c[0] = 1; let run = 0;
@@ -469,20 +475,36 @@ const Core = (() => {
     const mag = new Float64Array(n / 2); for (let i = 0; i < n / 2; i++) mag[i] = Math.hypot(re[i], im[i]); return mag;
   }
 
+  // Multi-pitch chroma: find the notes inside the sound (harmonic salience), remove each note's overtones,
+  // then build the 12-tone profile from real notes. Robust to phone mics that cut the low fundamentals.
   function chroma(frame, sr) {
-    const mag = fftMag(frame), n = frame.length, ch = new Float64Array(12);
-    let peak = 0; for (let k = 1; k < mag.length; k++) peak = Math.max(peak, mag[k]);
-    if (!peak) return null;
-    let lowest = Infinity;
+    const mag = fftMag(frame), n = frame.length, bin = sr / n;
+    let peak = 0; for (let k = 1; k < mag.length; k++) peak = Math.max(peak, mag[k]); if (!peak) return null;
+    const peaks = [];
     for (let k = 2; k < mag.length - 1; k++) {
-      const f = k * sr / n; if (f < 70) continue; if (f > 2000) break;
-      const m = mag[k]; if (m < peak * 0.05 || m < mag[k-1] || m < mag[k+1]) continue; // spectral peaks only
-      const midi = 69 + 12 * Math.log2(f / 440), pc = ((Math.round(midi) % 12) + 12) % 12;
-      ch[pc] += m / (1 + f / 500); // damp upper harmonics, which add fifths and thirds
-      if (m > peak * 0.2 && f < lowest) lowest = f;
+      const f = k * bin; if (f < 55) continue; if (f > 3000) break;
+      const m = mag[k]; if (m < peak * 0.03 || m < mag[k - 1] || m < mag[k + 1]) continue;
+      const a = Math.log(mag[k - 1] + 1e-12), b = Math.log(m), c = Math.log(mag[k + 1] + 1e-12), d = (a - c) / (2 * (a - 2 * b + c) || 1); // exact peak frequency
+      peaks.push({ f: (k + d) * bin, a: m });
     }
-    const mx = Math.max(...ch); if (!mx) return null;
-    return { ch: Array.from(ch, v => v / mx), bass: isFinite(lowest) ? noteOf(lowest).midi % 12 : null };
+    const amp = peaks.map(p => p.a), find = f => { let bi = -1, bd = 0.03; peaks.forEach((p, i) => { const r = Math.abs(p.f / f - 1); if (r < bd) { bd = r; bi = i; } }); return bi; };
+    const notes = [];
+    for (let iter = 0; iter < 6; iter++) {
+      let best = null;
+      for (let m = 38; m <= 86; m++) {
+        const f0 = 440 * 2 ** ((m - 69) / 12), hits = [];
+        if (find(f0) < 0 && (find(2 * f0) < 0 || find(3 * f0) < 0)) continue; // a missing fundamental needs its 2nd and 3rd harmonic (no octave-below ghosts)
+        let s = 0; for (let h = 1; h <= 8; h++) { const i = find(h * f0); if (i >= 0 && amp[i] > 0) { s += amp[i] / Math.sqrt(h); hits.push(i); } }
+        if (!best || s > best.s) best = { m, s, hits };
+      }
+      if (!best || best.s <= 0 || (notes.length && best.s < notes[0].w * 0.18)) break; // thresholds tuned on a guitar benchmark
+      notes.push({ midi: best.m, w: best.s });
+      best.hits.forEach(i => amp[i] *= 0.15); // explain away this note's overtones
+    }
+    if (!notes.length) return null;
+    const ch = new Array(12).fill(0); notes.forEach(nt => ch[nt.midi % 12] += Math.sqrt(nt.w));
+    const mx = Math.max(...ch);
+    return { ch: ch.map(v => v / mx), bass: Math.min(...notes.map(nt => nt.midi)) % 12, notes: notes.sort((x, y) => x.midi - y.midi) };
   }
 
   const TYPES = [['', [0,4,7]], ['m', [0,3,7]], ['7', [0,4,7,10]], ['maj7', [0,4,7,11]], ['m7', [0,3,7,10]], ['sus2', [0,2,7]], ['sus4', [0,5,7]], ['dim', [0,3,6]]];
@@ -636,6 +658,28 @@ const GuitarCore = (() => {
     return opts[0] || null;
   }
   const voicing = shape => shape.map((f, i) => f == null ? null : OPEN[i] + f).filter(m => m != null);
+  function chordShapes(nm) { // every grip we know for a chord: open, E-shape and A-shape barre (also one octave up)
+    const c = parseChord(nm); if (!c) return [];
+    const out = SHAPES[nm] ? [SHAPES[nm]] : [];
+    [[E_SHAPE, 4], [A_SHAPE, 9]].forEach(([T, base]) => { if (!T[c.suf]) return; const r = ((c.pc - base) % 12 + 12) % 12;
+      [r, r + 12].forEach(rr => { if (rr >= 1 && rr <= 12) out.push(T[c.suf].map(f => f == null ? null : f + rr)); }); });
+    return out;
+  }
+  function bestVoicing(nm, heard = []) { // the grip whose notes (with octaves) match what was heard
+    const shapes = chordShapes(nm); if (!heard.length) return shapes[0] || null;
+    const hm = heard.map(n => n.midi), hp = hm.map(m => m % 12), low = Math.min(...hm), high = Math.max(...hm);
+    let best = null;
+    shapes.forEach((sh, i) => { const v = voicing(sh); let sc = -i * 0.05;
+      v.forEach(m => sc += hm.includes(m) ? 1 : hp.includes(m % 12) && m <= high + 4 ? 0.2 : -0.3); // octave doublings hide inside lower notes, so only near the heard range
+      if (Math.min(...v) === low) sc += 1;
+      if (Math.max(...v) > high + 4) sc -= 0.5;
+      if (!best || sc > best.sc) best = { sh, sc }; });
+    return best.sh;
+  }
+  function positions(midi, near) { // every place a note lives on the neck (frets 0-12); the closest to your hand first
+    const out = OPEN.map((o, s) => ({ s, f: midi - o })).filter(p => p.f >= 0 && p.f <= 12);
+    return out.sort((a, b) => (near == null ? a.f - b.f : Math.abs(a.f - near) - Math.abs(b.f - near)));
+  }
 
   // onsets -> beat length and note positions in eighth notes
   function rhythm(notes) {
@@ -720,7 +764,7 @@ const GuitarCore = (() => {
   }
   const ARPS = [['Dur', [0, 4, 7]], ['Moll', [0, 3, 7]], ['Dominant-Sept (7)', [0, 4, 7, 10]], ['Maj7', [0, 4, 7, 11]], ['Moll-Sept (m7)', [0, 3, 7, 10]],
     ['Halbvermindert (m7b5)', [0, 3, 6, 10]], ['Vermindert', [0, 3, 6]], ['Übermäßig', [0, 4, 8]], ['Sus4', [0, 5, 7]], ['Add9', [0, 2, 4, 7]]];
-  return { OPEN, STRINGS, SHAPES, parseChord, chordShape, voicing, rhythm, tabify, tabText, lenSym, techniques, label, TECH_NAMES, SCALES, ARPS, scaleNotes };
+  return { OPEN, STRINGS, SHAPES, parseChord, chordShape, voicing, rhythm, tabify, tabText, lenSym, techniques, label, TECH_NAMES, SCALES, ARPS, scaleNotes, chordShapes, bestVoicing, positions };
 })();
 
 // ---- song splitting: center/side spectral masking (vocals sit in the middle of a stereo mix)
@@ -908,7 +952,7 @@ function loop() {
   const p = Core.detectPitch(x.subarray(x.length - 2048), sr);
   lastPitch = p && p.clarity > 0.6 ? Core.noteOf(p.freq) : null; lastMidiF = lastPitch ? Core.midiOf(p.freq) : null;
   const wantChord = panel === 'hoeren' || panel === 'radio' || (panel === 'ueben' && ['pfad', 'mit', 'wechsel'].includes(learnMode));
-  if (wantChord) { const c = Core.chroma(x.subarray(x.length - 8192), sr), r = c && p ? Core.detectChord(c) : null; lastChord = r && r.best.score > 0.75 ? r.best.name : null; if (panel === 'hoeren') showChord(r, c); if (panel === 'radio') radioTick(c, r); }
+  if (wantChord) { const c = Core.chroma(x.subarray(x.length - 8192), sr), r = c && level > 0.003 && c.notes.length >= 2 ? Core.detectChord(c) : null; /* chords confuse the single-note detector, so gate on loudness */ lastChord = r && r.best.score > 0.75 ? r.best.name : null; lastC = c; if (panel === 'hoeren') showChord(r, c); if (panel === 'radio') radioTick(c, r); }
   if (panel === 'hoeren') showNote(p);
   if (panel === 'stimmen') tune(p);
   if (panel === 'ueben') practiceTick();
@@ -922,9 +966,15 @@ function loop() {
   requestAnimationFrame(loop);
 }
 
+let lastC = null, handFret = null, boardNote = null, boardChordAt = 0;
 function showNote(p) {
   if (!p) { $('noteSub').textContent = 'Spiel eine Saite an …'; return; }
   const n = Core.noteOf(p.freq);
+  if (p.clarity > 0.8 && n.midi !== boardNote && (!lastC || lastC.notes.length < 3) && performance.now() - boardChordAt > 600) { // single notes: where on the neck?
+    boardNote = n.midi; const pos = G.positions(n.midi, handFret);
+    if (pos.length) { handFret = pos[0].f; $('hrBoard').innerHTML = fretboard([], null, null, [], pos.map((q, i) => ({ ...q, main: !i })));
+      $('hrInfo').textContent = `${n.name}${n.octave}: ${STR_NAMES[pos[0].s]}-Saite ${pos[0].f ? 'Bund ' + pos[0].f : 'leer'}` + (pos.length > 1 ? ` (oder ${pos.slice(1).map(q => STR_NAMES[q.s] + '-Saite ' + q.f).join(', ')})` : ''); }
+  }
   $('noteBig').textContent = n.name + n.octave;
   $('noteSub').textContent = `${p.freq.toFixed(1)} Hz · ${n.cents > 0 ? '+' : ''}${n.cents} Cent`;
   $('needle').style.left = (50 + n.cents) + '%'; $('needle').classList.toggle('ok', Math.abs(n.cents) <= 5);
@@ -936,6 +986,10 @@ function showChord(r, c) {
   const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
   if (top && top[1] >= 6 && top[0] !== shownChord) {
     shownChord = top[0]; $('chordBig').textContent = top[0]; $('chordDg').innerHTML = diagram(top[0], 'lg');
+    const sh = G.bestVoicing(top[0], c ? c.notes : []);
+    if (sh) { boardChordAt = performance.now(); boardNote = null; const fr = sh.filter(f => f != null && f > 0); handFret = fr.length ? Math.min(...fr) : 0;
+      $('hrBoard').innerHTML = fretboard([], null, null, [], sh.map((f, s) => f == null ? null : { s, f, main: true }).filter(Boolean));
+      $('hrInfo').textContent = `${top[0]}: ${sh.includes(0) ? 'offener Griff' : 'Barré-Griff ab Bund ' + Math.min(...fr)} · gehört: ${(c ? c.notes : []).map(nt => noteLabel(nt.midi)).join(' ')}`; }
     $('chordSub').textContent = r ? 'Ähnlich: ' + r.alt.map(a => a.name).join(', ') : '';
   }
   $('pcChips').innerHTML = c ? Core.NAMES.map((nm, i) => `<span class="chip${c.ch[i] > 0.45 ? ' on' : ''}">${nm}</span>`).join('') : '';
@@ -1299,7 +1353,7 @@ $('scRoot').innerHTML = Core.NAMES.map((n, i) => `<option value="${i}" ${i === 9
 $('scType').innerHTML = '<optgroup label="Tonleitern">' + G.SCALES.map(([n], i) => `<option value="s${i}" ${i === 5 ? 'selected' : ''}>${n}</option>`).join('') + '</optgroup><optgroup label="Arpeggios">' + G.ARPS.map(([n], i) => `<option value="a${i}">Arpeggio ${n}</option>`).join('') + '</optgroup>';
 const scaleSel = () => { const v = $('scType').value, pc = +$('scRoot').value, [nm, iv] = (v[0] === 'a' ? G.ARPS : G.SCALES)[+v.slice(1)], midis = G.scaleNotes(pc, iv, +$('scOct').value, $('scDir').value);
   return { pc, nm, iv, midis, tab: G.tabify(midis.map((m, i) => ({ midi: m, start: i * 0.5, dur: 0.45 })), false) }; };
-function fretboard(pcs, root, target, found = []) { // high e on top like a tab, frets 0-12
+function fretboard(pcs, root, target, found = [], marks = []) { // high e on top like a tab, frets 0-12; marks = [{s, f, main}] where you play
   const W = 600, H = 150, x = f => 24 + f * 44, y = s => 16 + (5 - s) * 24;
   let svg = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="max-width:none" role="img" aria-label="Griffbrett">`;
   for (let f = 1; f <= 12; f++) svg += `<line x1="${x(f) - 22}" x2="${x(f) - 22}" y1="12" y2="${y(0) + 4}" stroke="var(--line)" stroke-width="${f === 1 ? 4 : 2}"/>`;
@@ -1309,6 +1363,9 @@ function fretboard(pcs, root, target, found = []) { // high e on top like a tab,
       const isT = target && target.s === s && target.f === f;
       svg += `<circle cx="${x(f)}" cy="${y(s)}" r="9" fill="${found.includes(pc) ? 'var(--good)' : pc === root ? 'var(--accent)' : 'var(--muted)'}" opacity="${pc === root || found.includes(pc) ? 1 : 0.55}"/>` + (isT ? `<circle cx="${x(f)}" cy="${y(s)}" r="13" fill="none" stroke="var(--good)" stroke-width="3"/>` : '');
       svg += `<text x="${x(f)}" y="${y(s) + 3.5}" text-anchor="middle" font-size="9" font-weight="700" fill="var(--bg)">${Core.name(pc)}</text>`; } }
+  marks.forEach(mk => { const nm = Core.name(G.OPEN[mk.s] + mk.f);
+    svg += mk.main ? `<circle cx="${x(mk.f)}" cy="${y(mk.s)}" r="11" fill="var(--accent)"/><text x="${x(mk.f)}" y="${y(mk.s) + 4}" text-anchor="middle" font-size="10" font-weight="700" fill="var(--bg)">${nm}</text>`
+      : `<circle cx="${x(mk.f)}" cy="${y(mk.s)}" r="10" fill="none" stroke="var(--accent)" stroke-width="2" stroke-dasharray="3 2"/>`; });
   return svg + '</svg>';
 }
 function scaleShow(target) {
@@ -1626,7 +1683,7 @@ $('earClose').onclick = () => { ear.on = false; ear.srcs.forEach(s => { try { s.
 // ---------- radio mode: key and chords of any music in the room
 const radio = { acc: new Array(12).fill(0), frames: 0, key: null, hold: [], shown: null, hist: [] };
 function radioTick(c, r) {
-  if (c) { for (let i = 0; i < 12; i++) radio.acc[i] = radio.acc[i] * 0.998 + c.ch[i]; radio.frames++; } // ~8 s memory
+  if (c) { for (let i = 0; i < 12; i++) radio.acc[i] = radio.acc[i] * 0.998 + c.ch[i]; radio.frames++; if (c.notes && c.notes.length >= 3) radio.lastNotes = c.notes; } // ~8 s memory
   if (radio.frames > 120 && radio.frames % 30 === 0) {
     const k = Core.keyFromChroma(radio.acc);
     if (!radio.key || k.name !== radio.key.name) { radio.key = k; const iv = k.minor ? [0, 3, 5, 7, 10] : [0, 2, 4, 7, 9];
@@ -1639,7 +1696,8 @@ function radioTick(c, r) {
     radio.hist.push(top[0]); radio.hist = radio.hist.slice(-8); $('rdHist').innerHTML = radio.hist.map((h, i) => `<span class="c${i === radio.hist.length - 1 ? ' now' : ''}">${h}</span>`).join('');
   }
   if (radio.key && radio.frames % 10 === 0) { const sh = radio.shown && G.parseChord(radio.shown), chordTones = sh ? (Core.TYPES.find(([suf]) => suf === sh.suf) || ['', [0, 4, 7]])[1].map(i => (sh.pc + i) % 12) : [];
-    $('rdBoard').innerHTML = fretboard(radio.pcs, radio.key.tonic, null, chordTones); }
+    const vs = radio.shown && G.bestVoicing(radio.shown, radio.lastNotes || []);
+    $('rdBoard').innerHTML = fretboard(radio.pcs, radio.key.tonic, null, chordTones, vs ? vs.map((f, s) => f == null ? null : { s, f, main: true }).filter(Boolean) : []); }
 }
 $('rdReset').onclick = () => { Object.assign(radio, { acc: new Array(12).fill(0), frames: 0, key: null, hold: [], shown: null, hist: [] }); $('rdKey').textContent = 'Tonart: wird erkannt …'; $('rdHist').innerHTML = ''; $('rdNow').textContent = '–'; $('rdDg').innerHTML = ''; $('rdBoard').innerHTML = ''; };
 
