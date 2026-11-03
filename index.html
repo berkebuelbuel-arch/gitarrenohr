@@ -63,6 +63,21 @@ button,select,input{font:inherit;color:var(--fg)}
 .diagrams{display:flex;flex-wrap:wrap;gap:12px}
 .dg{display:flex;flex-direction:column;align-items:center;font-weight:700}
 .dg svg{width:96px;height:auto}
+.diagrams.mini svg{width:58px}
+.diagrams.mini{gap:6px}
+.dg.now{outline:3px solid var(--accent);outline-offset:4px;border-radius:8px}
+.nowbar{display:grid;grid-template-columns:1fr 1fr;gap:10px;text-align:center}
+.nowbar b{display:block;font-family:var(--f-display);font-size:2.2rem;line-height:1.1}
+.nowbar div:last-child b{color:var(--muted)}
+.help{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:12px;padding:10px 14px}
+.help summary{font-weight:700;cursor:pointer}
+.help ol{margin:8px 0 4px;padding-left:1.3em}
+.help li{margin:4px 0}
+.help dl{margin:6px 0 0;font-size:.92rem}
+.help dt{font-weight:700;margin-top:6px}
+.help dd{margin:0;color:var(--muted)}
+.welcome{border:2px solid var(--good);border-radius:14px;padding:12px 14px;background:var(--surface)}
+.welcome .row{margin-top:8px}
 .dg.lg svg{width:170px}
 .list{font-family:var(--f-mono);font-size:.9rem;color:var(--muted);max-height:220px;overflow:auto;white-space:pre}
 select,input[type=text]{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:6px 8px;max-width:100%}
@@ -384,6 +399,8 @@ header{display:flex;justify-content:space-between;align-items:center;gap:10px}
     </div>
     <div class="card">
       <div class="prow"><h2 id="stTitle">–</h2><span class="pill" id="stSig"></span></div>
+      <div class="nowbar"><div><span class="sub">Jetzt greifen</span><b id="stNow">–</b></div><div><span class="sub">Gleich danach</span><b id="stNext">–</b></div></div>
+      <div class="diagrams" id="stDg"></div>
       <div class="strum" id="stGrid"></div>
       <div class="hand" aria-hidden="true"><div class="strs"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="hd" id="stHand">✋</div><div class="sub" id="stHandTxt"></div></div>
       <div class="sub" id="stTip"></div>
@@ -424,7 +441,8 @@ header{display:flex;justify-content:space-between;align-items:center;gap:10px}
         <div class="row"><label>Akkorde <select id="swArrCh"></select></label><label>Strumming <select id="swArrPat"></select></label><label>Schlagzeug <select id="swArrDr"></select></label><label><input type="checkbox" id="swKeys" checked> E-Piano</label></div>
         <div class="row"><button class="btn" id="swArrPlay">▶ Mit Band anhören</button><button class="btn ghost" id="swArrStop">■ Stopp</button></div>
         <div class="row"><button class="btn ghost" id="swSaveMix">💾 Song mit Band speichern</button><button class="btn ghost" id="swSaveRec">💾 Nur meine Aufnahme speichern</button></div>
-        <div class="sub" id="swArrInfo"></div></div>
+        <div class="sub" id="swArrInfo"></div>
+        <div class="sub">Diese Akkorde greifst du dazu:</div><div class="diagrams" id="swArrDg"></div></div>
       <div class="card"><h2>Passende Strumming-Muster</h2><div id="swStrums"></div></div>
       <div class="card"><h2>Passende Akkorde</h2><div id="swChords"></div><div class="diagrams" id="swDg"></div></div>
       <div class="card"><h2>Riffs, Licks & Tonleitern für deinen Song</h2>
@@ -452,6 +470,7 @@ header{display:flex;justify-content:space-between;align-items:center;gap:10px}
       <div class="big" id="jmNow">–</div>
       <div class="sub" id="jmNext">Danach: –</div>
       <div class="prog" id="jmProg" style="justify-content:center"></div>
+      <div class="diagrams" id="jmDg" style="justify-content:center"></div>
     </div>
     <div class="card">
       <h2 id="jmScaleT">Passende Tonleiter</h2>
@@ -1589,7 +1608,7 @@ const SONGS = [
   { t: 'Amazing Grace (traditionell)', key: 'G-Dur', meter: 3, bpm: 80, prog: [['G', 6], ['C', 3], ['G', 9], ['D', 6], ['G', 6], ['C', 3], ['G', 6], ['D', 3], ['G', 6]] },
   { t: 'House of the Rising Sun (traditionell)', key: 'A-Moll', meter: 6, bpm: 160, prog: [['Am', 6], ['C', 6], ['D', 6], ['F', 6], ['Am', 6], ['C', 6], ['E', 12], ['Am', 6], ['C', 6], ['D', 6], ['F', 6], ['Am', 6], ['E', 6], ['Am', 6], ['E', 6]] }];
 $('songSel').innerHTML = SONGS.map((s, i) => `<option value="${i}">${s.t}</option>`).join('');
-$('songGrid').innerHTML = SONGS.map((s, i) => `<div class="card song"><div class="t">${s.t}</div><div class="sub">${s.key} · ${s.meter === 6 ? '6/8' : s.meter + '/4'}</div><div class="sub">${s.prog.map(p => p[0]).join(' – ')}</div><div class="row"><button class="btn small" data-play="${i}">Mitspielen</button><button class="btn ghost small" data-hear="${i}">▶ Anhören</button></div></div>`).join('');
+$('songGrid').innerHTML = SONGS.map((s, i) => `<div class="card song"><div class="t">${s.t}</div><div class="sub">${s.key} · ${s.meter === 6 ? '6/8' : s.meter + '/4'}</div><div class="sub">${s.prog.map(p => p[0]).join(' – ')}</div><div class="diagrams mini">${[...new Set(s.prog.map(p => p[0]))].map(c => diagram(c)).join('')}</div><div class="row"><button class="btn small" data-play="${i}">Mitspielen</button><button class="btn ghost small" data-hear="${i}">▶ Anhören</button></div></div>`).join('');
 $('songGrid').querySelectorAll('[data-play]').forEach(b => b.onclick = () => { $('songSel').value = b.dataset.play; $('learnMode').value = 'mit'; $('learnMode').onchange({ target: $('learnMode') }); selectSong(); showPanel('ueben'); });
 $('songGrid').querySelectorAll('[data-hear]').forEach(b => b.onclick = () => { stopAll(); const s = SONGS[b.dataset.hear], beat = 60 / s.bpm; let t = audio().currentTime + 0.1; s.prog.forEach(([c, n]) => { for (let k = 0; k < n; k += s.meter === 6 ? 3 : 2) strum(c, t + k * beat, 0.5); t += n * beat; }); });
 
@@ -1928,6 +1947,7 @@ function jamShow(chord) {
   $('jmScaleInfo').textContent = `Töne: ${pcs.map(Core.name).join(' ')} · Alternative: ${st.alt}`;
   $('jmBoard').innerHTML = fretboard(pcs, k, null, chord ? chordPcs(chord) : []);
   if (!jam.on) $('jmProg').innerHTML = jamProg().map((c, i) => `<span class="c" id="jp${i}">${c.name}</span>`).join('');
+  const pr = jam.on ? jam.prog : jamProg(); $('jmDg').innerHTML = pr.map(c => diagram(c.name).replace('class="dg ', `class="dg${chord && c === chord ? ' now' : ''} `)).join('');
   jam.pcs = pcs;
 }
 ['jmKey', 'jmStyle'].forEach(id => $(id).onchange = () => { if (jam.on) { jamStop(); jamStart(); } else jamShow(); });
@@ -2084,6 +2104,11 @@ $('stBpm').oninput = () => $('stBpmVal').textContent = $('stBpm').value;
 const st = { on: false, mode: '', pat: null, prog: [], next: 0, step: 0, timer: null, queue: [], cur: null, expect: [], env: 0, last: 0, end: 0, once: false };
 const countsOf = s => s.sig === '6/8' ? ['1', '2', '3', '4', '5', '6'] : Array.from({ length: s.g }, (_, i) => { const per = s.g / s.beats, k = i % per; return k ? (per === 4 ? ['', 'e', '+', 'a'][k] : '+') : String(i / per + 1); });
 const isBeat = (s, i) => i % (s.g / s.beats) === 0;
+const stChordIdx = bar => Math.max(0, st.mode === 'test' ? bar - 1 : bar) % st.prog.length; // the count-in bar already shows the first chord
+function stChords(prog, cur = -1) {
+  $('stDg').innerHTML = prog.map((c, i) => diagram(c).replace('class="dg ', `class="dg${i === cur ? ' now' : ''} `)).join('');
+  $('stNow').textContent = prog[Math.max(0, cur)]; $('stNext').textContent = prog[(Math.max(0, cur) + 1) % prog.length];
+}
 function strumShow() {
   const s = G.STRUMS[$('stSel').value], c = countsOf(s);
   $('stTitle').textContent = s.t; $('stSig').textContent = s.sig + (s.swing ? ' · Swing' : '') + (s.g === 16 ? ' · 16tel' : ' · Achtel');
@@ -2091,6 +2116,7 @@ function strumShow() {
   $('stTip').textContent = '👉 ' + s.tip + ' Zählen: ' + c.join(' ');
 }
 $('stSel').onchange = () => { if (st.on) strumStop(); strumShow(); };
+$('stProg').onchange = () => { if (st.on) strumStop(); stChords($('stProg').value.split(' ')); };
 // one stroke of the pattern as sound
 let chuckBuf = null;
 function strumSlot(sym, chord, t, vol = 0.5) {
@@ -2119,7 +2145,7 @@ function strumSchedule() {
     const i = st.step % s.g, bar = Math.floor(st.step / s.g), t = st.next, d = slotDur(s, beat, i);
     if (bar >= st.bars) { clearInterval(st.timer); st.end = t; return; }
     if (isBeat(s, i) && (st.mode === 'test' || $('stClick').checked)) click(t, i === 0);
-    if (st.mode === 'demo') strumSlot(s.p[i], st.prog[bar % st.prog.length], t);
+    if (st.mode === 'demo') strumSlot(s.p[i], st.prog[stChordIdx(bar)], t);
     if (st.mode === 'test' && bar >= 1) st.expect.push({ t, i, bar, hit: s.p[i] !== '-', res: null });
     st.queue.push({ t, i, bar, d }); st.step++; st.next += d;
   }
@@ -2131,7 +2157,8 @@ function strumUi() {
     const q = st.queue.shift(); st.cur = q;
     document.querySelectorAll('#stGrid .sc').forEach((el, j) => el.classList.toggle('now', j === q.i && s === G.STRUMS[$('stSel').value]));
     const ch = s.p[q.i], contact = ch !== '-';
-    $('stHandTxt').textContent = (st.mode === 'test' && q.bar === 0 ? `Einzählen ${s.beats - Math.floor(q.i / (s.g / s.beats))} · ` : '') + st.prog[q.bar % st.prog.length] + ' · ' +
+    if (q.i === 0) stChords(st.prog, stChordIdx(q.bar));
+    $('stHandTxt').textContent = (st.mode === 'test' && q.bar === 0 ? `Einzählen ${s.beats - Math.floor(q.i / (s.g / s.beats))} · ` : '') + st.prog[stChordIdx(q.bar)] + ' · ' +
       (ch === 'D' ? 'runter, Saiten treffen' : ch === 'U' ? 'hoch, hohe Saiten' : ch === 'x' ? 'runter, gedämpft' : ch === 'B' ? 'nur Basssaite' : 'in der Luft weiter');
     $('stHand').classList.toggle('air', !contact); $('stHand').parentElement.classList.toggle('hit', contact && ch !== 'B');
   }
@@ -2177,7 +2204,7 @@ function strumEnd() {
 $('stPlay').onclick = () => strumStart('demo');
 $('stGo').onclick = () => { if (!running) { say('Bitte zuerst „🎤 Mikrofon starten“ tippen, dann hört die App deine Schläge.', true); return; } strumStart('test'); };
 $('stStop').onclick = strumStop;
-strumShow();
+strumShow(); stChords($('stProg').value.split(' '));
 
 // ---------- licks: call and response, shown on tab and fretboard while they play
 $('lkStyle').innerHTML = '<option value="">Alle Stile</option>' + [...new Set(G.LICKS.map(l => l.style))].map(s => `<option ${s === 'R&B' ? 'selected' : ''}>${s}</option>`).join('');
@@ -2298,13 +2325,15 @@ function swAnalyze(x, sr, name, saved) {
   $('swOut').hidden = false; if (!saved) win(10, '✍️ Song analysiert'); say(`Fertig: ${key.name}, ca. ${top.bpm} BPM. Vorschläge unten.`);
   sw.prog = prog || chorus;
   $('swArrCh').innerHTML = sw.rows.map((r, i) => `<option value="${i}">${r.lab.replace('🎤 ', '')}</option>`).join('');
-  $('swArrCh').value = Math.max(0, sw.rows.findIndex(r => r.lab.includes('R&B')));
+  $('swArrCh').value = Math.max(0, sw.rows.findIndex(r => r.lab.includes('R&B'))); swArrDg();
   const pats = [...new Set([...picks, ...rank.filter(r => r.t.startsWith('R&B'))])];
   $('swArrPat').innerHTML = pats.map(r => `<option value="${G.STRUMS.findIndex(s => s.p === r.p)}">${r.t}</option>`).join('');
   $('swArrPat').value = G.STRUMS.findIndex(s => s.p === (rnbPick || pats[0]).p);
   swExtras();
   $('swArrInfo').textContent = `Takt ${top.sig}, ${top.bpm} BPM, Band setzt bei ${sw.res.t0.toFixed(1)} s ein.`;
 }
+function swArrDg() { const r = sw.rows[$('swArrCh').value]; $('swArrDg').innerHTML = r ? [...new Set(r.chords)].slice(0, 8).map(c => diagram(c)).join('') : ''; }
+$('swArrCh').onchange = swArrDg;
 // ---------- your recording + drums, bass and strummed chords, live or rendered to a WAV file
 const SW_DRUMS = [['R&B Slow Jam', { k: [0, 7, 10], s: [4, 12], h: [0, 2, 4, 6, 8, 10, 12, 14] }], ['Neo-Soul (locker)', { k: [0, 6, 9], s: [4, 12], h: [0, 2, 3, 4, 6, 8, 10, 11, 12, 14] }],
   ['R&B Bounce', { k: [0, 3, 8, 10], s: [4, 12], h: [...Array(16).keys()] }], ['Pop', { k: [0, 8], s: [4, 12], h: [0, 2, 4, 6, 8, 10, 12, 14] }], ['Ohne Schlagzeug', null]];
@@ -2404,6 +2433,54 @@ $('swOut').addEventListener('click', e => {
     $('stProg').value = v; $('stSel').value = b.dataset.st; $('stBpm').value = Math.max(40, Math.min(160, sw.res.bpm)); $('stBpmVal').textContent = $('stBpm').value; strumShow(); showPanel('strum');
   }
 });
+
+// ---------- beginner help: every view explains itself in steps, plus the words you need
+const TERMS = {
+  mikro: ['Mikrofon', 'Ganz oben „🎤 Mikrofon starten“ tippen und erlauben. Leg das Handy 30 bis 50 cm vor die Gitarre. Kopfhörer helfen, wenn die App gleichzeitig Musik spielt.'],
+  saiten: ['Saiten', 'Von dick nach dünn heißen sie E A D G H e. Die dicke tiefe E-Saite ist beim Spielen oben, die dünne hohe e-Saite unten.'],
+  bund: ['Bund', 'Die Felder zwischen den Metallstäbchen auf dem Hals. Bund 1 ist am Kopf der Gitarre. Drück mit der Fingerkuppe knapp hinter dem Stäbchen.'],
+  griffbild: ['Griffbild lesen', 'Senkrechte Linien = Saiten (links die dicke E, rechts die dünne e). Waagerechte Linien = Bünde. Punkt = dort drücken. o = Saite leer mitklingen lassen. x = Saite nicht anschlagen. Balken = Barré: ein Finger drückt mehrere Saiten.'],
+  akkord: ['Akkord', 'Mehrere Töne gleichzeitig: Die linke Hand greift das Griffbild, die rechte schlägt die Saiten an.'],
+  strumming: ['Strumming', 'Mit der rechten Hand über die Saiten schlagen, mit Plektrum oder Daumen. Die Hand pendelt immer gleichmäßig runter und hoch, auch wenn sie nicht jedes Mal trifft.'],
+  takt: ['Takt und Zählen', 'Ein Takt hat meist 4 Schläge. Zähl laut „1 und 2 und 3 und 4 und“. Auf den Zahlen geht die Hand runter, auf dem „und“ hoch.'],
+  bpm: ['BPM (Tempo)', 'Schläge pro Minute. Weniger = langsamer. Fang langsam an, die App macht schneller, wenn es klappt.'],
+  tab: ['Tabs lesen', '6 Zeilen = 6 Saiten. Oben steht die dünne e-Saite, unten die dicke E. Die Zahl ist der Bund, 0 = leere Saite. Von links nach rechts nacheinander spielen.'],
+  tech: ['h, p, /, b im Tab', 'h = Hammer-on: Finger auf die Saite hämmern, nicht neu anschlagen. p = Pull-off: Finger seitlich abziehen. / und \\ = Slide: Finger rutscht. b = Bending: Saite hochschieben.'],
+  finger: ['Finger-Nummern', '1 = Zeigefinger, 2 = Mittelfinger, 3 = Ringfinger, 4 = kleiner Finger.'],
+  tonart: ['Tonart', 'Eine Gruppe von Tönen und Akkorden, die gut zusammen klingen, zum Beispiel C-Dur oder A-Moll.'],
+  tonleiter: ['Tonleiter', 'Die Töne einer Tonart der Reihe nach. Wer sie kennt, kann eigene Melodien und Solos spielen.'],
+  lick: ['Lick', 'Eine kurze Melodie, die Gitarristen in Solos und zwischen dem Gesang spielen.']
+};
+const HELP = {
+  sw: [['Oben „🎤 Mikrofon starten“ tippen.', '„● Lied aufnehmen“ tippen, 20 bis 60 Sekunden singen oder spielen, dann „■ Fertig“.', 'Die App zeigt Tonart, Tempo, passende Strumming-Muster und Akkorde mit Griffbildern.', '„▶ Mit Band anhören“: dein Lied mit Schlagzeug, Bass und Gitarre. „💾 Speichern“ lädt es herunter.', 'Unten bei „Riffs, Licks & Tonleitern“ hörst du mit „▶ Im Song“, was du zusätzlich spielen kannst.'], ['mikro', 'tonart', 'bpm', 'akkord', 'strumming']],
+  jam: [['Tonart und Stil wählen, „▶ Band starten“.', 'Oben siehst du, welcher Akkord gerade läuft, darunter die Griffbilder.', 'Spiel Töne der Tonleiter vom Griffbrett. Grüne Punkte klingen zum aktuellen Akkord am besten.', 'Mit Mikrofon sagt dir die App bei jedem Ton, ob er passt.'], ['tonleiter', 'bund', 'saiten', 'mikro']],
+  strum: [['Muster wählen. Neu? Nimm „Anfänger: ein Schlag pro Takt“.', 'Akkorde wählen. Die Griffbilder zeigen, wie die linke Hand greift. Übe zuerst nur das Greifen.', '„▶ Vorspielen“: zuhören und die Hand ansehen. Oben steht, welchen Akkord du jetzt greifst und welcher danach kommt.', '„🎸 Nachspielen“: Mikrofon an, die App zählt einen Takt ein, dann spielst du 4 Takte mit.', 'Klappt es fast fehlerfrei, wird das Tempo schneller.'], ['strumming', 'takt', 'griffbild', 'akkord', 'bpm']],
+  licks: [['Stil und Lick wählen (oder 🎲 Zufall).', '„▶ Ruf“: die App spielt das Lick und zeigt jeden Ton: Saite, Bund, Finger.', 'Danach spielst du es nach. Die App wartet bei jedem Ton, bis er stimmt.', 'Zu schwer? Tempo-Regler nach links. Später „⚡ Im Takt“ für Tempo-Training.'], ['tab', 'tech', 'finger', 'lick', 'saiten']],
+  ueben: [['Übung oben wählen. Für den Anfang: „Lernpfad (Level)“.', 'Greif den angezeigten Akkord wie im Griffbild und schlag alle Saiten an, die keinen x haben.', 'Lass ihn klingen, bis er grün wird. Dann kommt der nächste.', '„▶ So klingt es“ spielt dir den Akkord vor.'], ['griffbild', 'akkord', 'bund', 'mikro']],
+  lieder: [['Bei jedem Lied siehst du die Griffbilder der Akkorde. Übe sie zuerst einzeln.', '„▶ Anhören“: so klingt die Folge.', '„Mitspielen“: Die App zählt ein und zeigt im Takt, welcher Akkord dran ist und welcher als Nächstes kommt.'], ['akkord', 'griffbild', 'takt']],
+  idee: [['Mikrofon starten, dann „● Idee aufnehmen“.', 'Summ, sing oder spiel deine Melodie, dann „■ Stopp“.', 'Du bekommst Noten, Tabs und passende Akkorde und kannst sie anhören, speichern und nachspielen.'], ['tab', 'akkord', 'mikro']],
+  hoeren: [['Mikrofon starten.', 'Spiel einen Ton oder Akkord und lass ihn klingen.', 'Oben steht sein Name, unten auf dem Griffbrett, wo du ihn gespielt hast.'], ['saiten', 'bund', 'griffbild']],
+  stimmen: [['Mikrofon starten.', 'Eine Saite einzeln anschlagen, zum Beispiel die dicke E.', 'Steht die Nadel links (zu tief), den Wirbel fester drehen. Rechts (zu hoch): lockerer. In der Mitte und grün = gestimmt.', 'Das für alle 6 Saiten. Vor jedem Üben kurz stimmen!'], ['saiten']],
+  song: [['Eine Musikdatei laden, die du besitzt (MP3, M4A, WAV).', 'Die App trennt Gesang, Begleitung und Bass und zeigt die Akkorde im Zeitverlauf.', 'Spiel mit, langsamer oder ohne Gesang.'], ['akkord', 'tonart']],
+  radio: [['Mikrofon starten und Musik laufen lassen (Radio, Lautsprecher).', 'Die App zeigt live Tonart und Akkord, damit du mitspielen kannst.'], ['tonart', 'akkord', 'tonleiter']],
+  gespeichert: [['Hier liegen deine gespeicherten Ideen. Antippen zum Öffnen.'], []]
+};
+Object.entries(HELP).forEach(([id, [steps, terms]]) => {
+  const d = document.createElement('details'); d.className = 'help'; d.open = !store.get('help.closed.' + id, false);
+  d.innerHTML = '<summary>💡 So geht’s</summary><ol>' + steps.map(x => `<li>${x}</li>`).join('') + '</ol>' +
+    (terms.length ? '<details><summary>📖 Begriffe erklärt: ' + terms.map(k => TERMS[k][0]).join(', ') + '</summary><dl>' + terms.map(k => `<dt>${TERMS[k][0]}</dt><dd>${TERMS[k][1]}</dd>`).join('') + '</dl></details>' : '');
+  d.ontoggle = () => store.set('help.closed.' + id, !d.open); $('p-' + id).prepend(d);
+});
+// first start: a path for complete beginners
+if (!store.get('welcomed', false)) {
+  $('subTabs').insertAdjacentHTML('beforebegin', `<div class="welcome" id="welcome"><b>👋 Neu an der Gitarre? So fängst du an:</b>
+    <div class="row"><button class="btn small" data-w="stimmen">1. Gitarre stimmen</button><button class="btn small" data-w="ueben">2. Erste Akkorde</button><button class="btn small" data-w="strum">3. Erstes Strumming</button><button class="btn ghost small" data-w="">Ausblenden</button></div></div>`);
+  $('welcome').onclick = e => { const b = e.target.closest('button'); if (!b) return; const w = b.dataset.w;
+    if (!w) { store.set('welcomed', true); $('welcome').remove(); return; }
+    if (w === 'strum') { $('stSel').value = G.STRUMS.findIndex(x => x.t.startsWith('Anfänger: ein')); $('stProg').value = 'G C D G'; strumShow(); stChords(['G', 'C', 'D', 'G']); }
+    if (w === 'ueben') { $('learnMode').value = 'pfad'; $('learnMode').onchange({ target: $('learnMode') }); }
+    showPanel(w); };
+}
 
 panel = null; showPanel(store.get('panel', 'sw')); xpShow();
 newTarget(); showStreak();
