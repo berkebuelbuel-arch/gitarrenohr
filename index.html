@@ -98,6 +98,33 @@ button.c{cursor:pointer;color:var(--fg);font:inherit;font-family:var(--f-display
 .bad-flash{color:var(--warn)}
 @keyframes hit{from{transform:scale(1.25)}to{transform:scale(1)}}
 [hidden]{display:none!important}
+header{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.xp{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 12px;font-weight:700;font-size:.85rem;cursor:pointer;color:var(--fg)}
+.xp.pop{animation:pop .5s ease-out}
+@keyframes pop{40%{transform:scale(1.15);border-color:var(--good)}}
+.nav{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.nv{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:10px 4px;font-weight:700;cursor:pointer;color:var(--muted);font-size:.92rem}
+.nv[aria-selected="true"]{color:var(--fg);border-color:var(--accent);box-shadow:inset 0 -3px 0 var(--accent)}
+.tabs:empty{display:none}
+.bar .file,.bar .btn{padding:8px 12px;font-size:.92rem}
+.status{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:20;width:min(92vw,560px);background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 14px;box-shadow:0 6px 24px rgba(0,0,0,.18);color:var(--fg)}
+.toast{position:fixed;left:50%;top:18px;transform:translateX(-50%);z-index:30;background:var(--surface);border:2px solid var(--good);border-radius:16px;padding:10px 18px;font-family:var(--f-display);font-weight:800;font-size:1.2rem;text-align:center;box-shadow:0 8px 28px rgba(0,0,0,.2);animation:pop .4s ease-out;pointer-events:none}
+.toast small{display:block;font-family:var(--f-body);font-size:.85rem;color:var(--good)}
+.toast.big{font-size:1.7rem;padding:16px 26px}
+.cf{position:fixed;top:-30px;z-index:29;font-style:normal;font-size:1.4rem;pointer-events:none;animation:fall 1.6s ease-in forwards}
+@keyframes fall{to{transform:translateY(105vh) rotate(540deg);opacity:.6}}
+.dg.lg:empty{min-height:190px}
+#hrBoard:empty,#rdBoard:empty,#jmBoard:empty,#lkBoard:empty,#scBoard:empty{min-height:150px}
+#hrInfo,#noteSub,#chordSub,#followHeard,#lkNow,#swArrInfo{min-height:1.5em}
+/* phone held sideways: compact header, two columns */
+@media (orientation: landscape) and (max-height: 560px){
+  .wrap{max-width:none;padding-block:8px 24px;gap:10px}
+  h1{font-size:1.4rem} .big{font-size:clamp(2.4rem,9vh,4rem)} .card{padding:12px;gap:8px}
+  .nv{padding:6px 4px} .tab{padding:6px 8px}
+  section.panel:not([hidden]),section.panel > div.panel:not([hidden]){display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:start}
+  section.panel > .row,section.panel > p,section.panel > div.panel,.panel > .card:has(.tabbox,.ftab,.strum){grid-column:1/-1}
+  #swOut:not([hidden]){display:grid;grid-template-columns:1fr 1fr;gap:10px}
+}
 @media (prefers-reduced-motion: reduce){.meter .needle{transition:none}}
 .strum{display:flex;gap:4px;overflow-x:auto;padding:8px 0}
 .strum .sc{flex:1 0 34px;text-align:center;border:2px solid var(--line);border-radius:8px;padding:4px 0;background:var(--bg)}
@@ -126,9 +153,8 @@ button.c{cursor:pointer;color:var(--fg);font:inherit;font-family:var(--f-display
 <div class="wrap">
   <header>
     <h1>Gitarrenohr</h1>
-    <p>Summ, sing oder spiel deine Idee vor, oder lade einen Song und zerlege ihn. Du bekommst Noten, Gitarren-Tabs und Akkorde und kannst alles anhören, speichern und üben.</p>
+    <button class="xp" id="xpPill" title="Deine Punkte">⭐ Level 1</button>
   </header>
-
   <div class="bar">
     <button class="btn" id="micBtn">🎤 Mikrofon starten</button>
     <label class="file">🎙️ Mit Handy aufnehmen<input type="file" id="capIn" accept="audio/*" capture></label>
@@ -136,25 +162,19 @@ button.c{cursor:pointer;color:var(--fg);font:inherit;font-family:var(--f-display
     <button class="btn ghost" id="saveBtn" hidden>App herunterladen</button>
   </div>
   <div class="lvl" id="level" hidden title="Mikrofon-Pegel"><i id="lvlFill"></i></div>
-  <div class="status" id="status" role="status">Starte das Mikrofon oder nimm etwas auf.</div>
 
-  <div class="tabs" role="tablist">
-    <button class="tab" role="tab" aria-selected="true" data-p="idee">Idee → Tabs</button>
-    <button class="tab" role="tab" aria-selected="false" data-p="song">Song zerlegen</button>
-    <button class="tab" role="tab" aria-selected="false" data-p="hoeren">Hören</button>
-    <button class="tab" role="tab" aria-selected="false" data-p="stimmen">Stimmen</button>
-    <button class="tab" role="tab" aria-selected="false" data-p="ueben">Üben</button>
-    <button class="tab" role="tab" aria-selected="false" data-p="strum">Strumming</button>
-    <button class="tab" role="tab" aria-selected="false" data-p="licks">Licks</button>
-    <button class="tab" role="tab" aria-selected="false" data-p="sw">Songwriter</button>
-    <button class="tab" role="tab" aria-selected="false" data-p="jam">Jam-Band</button>
-    <button class="tab" role="tab" aria-selected="false" data-p="radio">Radio</button>
-    <button class="tab" role="tab" aria-selected="false" data-p="lieder">Lieder</button>
-    <button class="tab" role="tab" aria-selected="false" data-p="gespeichert">Gespeichert</button>
-  </div>
+  <nav class="nav" role="tablist" aria-label="Bereiche">
+    <button class="nv" role="tab" data-g="sw">✍️ Songwriter</button>
+    <button class="nv" role="tab" data-g="ueb">🎸 Üben</button>
+    <button class="nv" role="tab" data-g="erk">🎤 Erkennen</button>
+    <button class="nv" role="tab" data-g="mem">💾 Gespeichert</button>
+  </nav>
+  <div class="tabs" id="subTabs" role="tablist"></div>
+  <div class="status" id="status" role="status" hidden></div>
+  <div class="toast" id="toast" aria-live="polite" hidden></div>
 
   <!-- Idee: melody -> notes, tabs, chords -->
-  <section class="panel" id="p-idee">
+  <section class="panel" id="p-idee" hidden>
     <div class="row">
       <button class="btn rec" id="recBtn">● Idee aufnehmen</button>
       <span class="sub" id="recLive">Summen, singen oder auf der Gitarre vorspielen</span>
@@ -1120,20 +1140,32 @@ if (typeof module !== 'undefined') module.exports = { Core, GuitarCore, StemCore
 <script>
 const $ = id => document.getElementById(id);
 const G = GuitarCore;
-const say = (msg, err) => { $('status').textContent = msg; $('status').classList.toggle('err', !!err); };
+let sayT = 0;
+const say = (msg, err) => { const el = $('status'); el.textContent = msg; el.classList.toggle('err', !!err); el.hidden = !msg; clearTimeout(sayT); sayT = setTimeout(() => el.hidden = true, err ? 9000 : 4000); }; // floats over the page, so nothing below moves
 const store = {
   get(k, d) { try { const v = localStorage.getItem('gitarrenohr.' + k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
   set(k, v) { try { localStorage.setItem('gitarrenohr.' + k, JSON.stringify(v)); } catch (e) {} }
 };
+// keep the current column visible by scrolling only its own strip sideways, never the page
+const hScroll = el => { const box = el && el.parentElement; if (box) box.scrollLeft = Math.max(0, el.offsetLeft - box.offsetLeft - box.clientWidth / 2); };
 const noteLabel = midi => Core.name(midi) + (Math.floor(midi / 12) - 1);
 let panel = 'idee';
 
 // ---------- tabs
-document.querySelectorAll('.tab').forEach(t => t.onclick = () => showPanel(t.dataset.p));
+const GROUPS = { sw: [['sw', 'Song schreiben'], ['jam', 'Jam-Band']], ueb: [['strum', 'Strumming'], ['licks', 'Licks'], ['ueben', 'Akkorde & Tonleitern'], ['lieder', 'Lieder']],
+  erk: [['idee', 'Idee → Tabs'], ['hoeren', 'Hören'], ['stimmen', 'Stimmen'], ['song', 'Song zerlegen'], ['radio', 'Radio']], mem: [['gespeichert', 'Gespeichert']] };
+const groupOf = p => Object.keys(GROUPS).find(g => GROUPS[g].some(([id]) => id === p));
+document.querySelectorAll('.nv').forEach(b => b.onclick = () => showPanel(store.get('last.' + b.dataset.g, GROUPS[b.dataset.g][0][0])));
+$('subTabs').onclick = e => { const b = e.target.closest('.tab'); if (b) showPanel(b.dataset.p); };
 function showPanel(p) {
-  panel = p;
-  document.querySelectorAll('.tab').forEach(x => x.setAttribute('aria-selected', x.dataset.p === p));
-  ['idee', 'song', 'hoeren', 'stimmen', 'ueben', 'strum', 'licks', 'sw', 'jam', 'radio', 'lieder', 'gespeichert'].forEach(x => $('p-' + x).hidden = x !== p);
+  if (p !== panel) { // whatever plays in the old view stops, so nothing runs where you can't see it
+    if (typeof jam !== 'undefined' && jam.on) jamStop(); if (typeof st !== 'undefined' && st.on) strumStop(); if (typeof lk !== 'undefined') lk.on = false;
+    if (speed.on) { speed.on = false; $('speedCard').hidden = true; } stopAll();
+  }
+  panel = p; const g = groupOf(p); store.set('panel', p); store.set('last.' + g, p);
+  document.querySelectorAll('.nv').forEach(x => x.setAttribute('aria-selected', x.dataset.g === g));
+  $('subTabs').innerHTML = GROUPS[g].length > 1 ? GROUPS[g].map(([id, t]) => `<button class="tab" role="tab" aria-selected="${id === p}" data-p="${id}">${t}</button>`).join('') : '';
+  Object.values(GROUPS).flat().forEach(([x]) => $('p-' + x).hidden = x !== p);
   if (p === 'gespeichert') renderIdeas();
 }
 
@@ -1230,7 +1262,7 @@ $('micBtn').onclick = async () => {
   if (running) { running = false; $('micBtn').textContent = '🎤 Mikrofon starten'; $('level').hidden = true; say('Mikrofon gestoppt.'); return; }
   try {
     audio(); // create + resume inside the tap, or iOS/Safari keeps it silent
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } }); // voice-call filters cut guitar notes and chords
     await ctx.resume(); analyser = ctx.createAnalyser(); analyser.fftSize = 16384;
     const mute = ctx.createGain(); mute.gain.value = 0;
     ctx.createMediaStreamSource(stream).connect(analyser); analyser.connect(mute); mute.connect(ctx.destination); // Safari only runs nodes that reach the speakers
@@ -1340,7 +1372,7 @@ function followStart(seq, tech = [], host = $('ideaCard'), hide = false) {
   Object.assign(follow, { on: true, i: 0, stable: 0, wrong: 0, needRelease: false, errors: 0, lastWrong: null, t0: performance.now() }); free.on && freeStop();
   $('followTab').innerHTML = '<div class="fcol lab">' + [5, 4, 3, 2, 1, 0].map(s => `<span>${STR_NAMES[s]}</span>`).join('') + '</div>' +
     follow.seq.map((p, i) => `<div class="fcol" id="fc${i}">` + [5, 4, 3, 2, 1, 0].map(s => p.s === s ? `<span class="n">${G.label(p, tech[i])}</span>` : '<span>–</span>').join('') + '</div>').join('');
-  $('followCard').hidden = false; followShow(); $('followCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  $('followCard').hidden = false; followShow();
   if (!running) say('Tipp auf „🎤 Mikrofon starten“, dann hört die App, was du spielst.', true);
 }
 function followShow() {
@@ -1351,6 +1383,7 @@ function followShow() {
     const secs = Math.round((performance.now() - follow.t0) / 1000), acc = Math.round(100 * n / (n + follow.errors)), key = 'best.' + (follow.key || 'idee');
     const best = store.get(key, null), rec = !best || follow.errors < best.e || (follow.errors === best.e && secs < best.s);
     if (rec) store.set(key, { e: follow.errors, s: secs });
+    win(10 + Math.round(10 * n / (n + follow.errors)) + (rec ? 10 : 0), rec ? '🏆 Neue Bestleistung!' : `🎉 Geschafft! ${acc} % richtig`, true);
     $('followNext').textContent = `🎉 Geschafft! ${follow.errors} Fehler · ${acc} % richtig · ${secs} s`; $('followNext').classList.add('ok-flash');
     $('followHeard').textContent = rec ? '🏆 Neue Bestleistung!' : `Bestleistung: ${best.e} Fehler in ${best.s} s`;
     markPracticed(); return;
@@ -1359,12 +1392,12 @@ function followShow() {
   const tk = follow.tech[i] && follow.tech[i].t;
   $('followNext').textContent = follow.hide ? `Ton ${i + 1}: hör hin und such ihn${i ? ' (letzter: ' + noteLabel(follow.seq[i - 1].midi) + ')' : ''}` : `${STR_NAMES[p.s]}-Saite, ${p.f === 0 ? 'leer' : 'Bund ' + p.f} (${noteLabel(p.midi)})${tk ? ' · ' + G.TECH_NAMES[tk] : ''}`;
   if (follow.board) follow.board(p);
-  const el = $('fc' + i); if (el) el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  hScroll($('fc' + i));
 }
 function followHit() {
   const prev = follow.seq[follow.i], el = $('fc' + follow.i);
   if (el) { el.classList.remove('hit'); void el.offsetWidth; el.classList.add('hit'); }
-  follow.i++; follow.stable = follow.wrong = 0; follow.minRms = 1; follow.silent = 0;
+  win(1); follow.i++; follow.stable = follow.wrong = 0; follow.minRms = 1; follow.silent = 0;
   const next = follow.seq[follow.i];
   follow.needRelease = !!next && next.midi === prev.midi; // same note again: wait for a new pluck
   followShow();
@@ -1489,6 +1522,28 @@ function newTarget() {
   let t; do t = pool[Math.floor(Math.random() * pool.length)]; while (t === target && pool.length > 1);
   target = t; hold = 0; $('target').textContent = t; $('target').classList.remove('ok-flash'); $('targetDg').innerHTML = diagram(t, 'lg'); renderLevel();
 }
+// points for everything you get right; a short high chime above the detector's range so the mic doesn't hear it as a note
+const xpLevel = x => Math.floor((Math.sqrt(1 + 8 * x / 100) - 1) / 2) + 1, xpFor = l => 50 * (l - 1) * l;
+function xpShow(pulse) {
+  const x = store.get('xp', 0), l = xpLevel(x), today = store.get('xpDay', {})[new Date().toISOString().slice(0, 10)] || 0;
+  $('xpPill').textContent = `⭐ Level ${l} · ${x - xpFor(l)}/${xpFor(l + 1) - xpFor(l)}`; $('xpPill').title = `Heute ${today} Punkte`;
+  if (pulse) { $('xpPill').classList.remove('pop'); void $('xpPill').offsetWidth; $('xpPill').classList.add('pop'); }
+}
+function chime(big) { const a = audio(), t = a.currentTime + 0.02; (big ? [2093, 2637, 3136] : [2093, 2637]).forEach((f, i) => { const o = a.createOscillator(), g = a.createGain(); o.frequency.value = f; g.gain.setValueAtTime(0, t + i * 0.08); g.gain.linearRampToValueAtTime(0.06, t + i * 0.08 + 0.01); g.gain.exponentialRampToValueAtTime(0.001, t + i * 0.08 + 0.3); o.connect(g); g.connect(a.destination); o.start(t + i * 0.08); o.stop(t + i * 0.08 + 0.32); }); }
+let toastT = 0;
+function win(pts, msg, big) {
+  const before = store.get('xp', 0), x = before + pts, day = new Date().toISOString().slice(0, 10), d = store.get('xpDay', {}); d[day] = (d[day] || 0) + pts;
+  store.set('xp', x); store.set('xpDay', Object.fromEntries(Object.entries(d).slice(-30))); xpShow(true); markPracticed();
+  const up = xpLevel(x) > xpLevel(before), el = $('toast');
+  if (msg || up) { el.innerHTML = up ? `🏆 Level ${xpLevel(x)} erreicht!<small>${msg || ''} · +${pts} Punkte</small>` : `${msg}<small>+${pts} Punkte</small>`; el.className = 'toast' + (big || up ? ' big' : ''); el.hidden = false;
+    clearTimeout(toastT); toastT = setTimeout(() => el.hidden = true, big || up ? 2600 : 1500); if (big || up) confetti(); }
+  if (msg || up) try { chime(big || up); } catch (e) {}
+}
+function confetti() {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  for (let i = 0; i < 24; i++) { const c = document.createElement('i'); c.className = 'cf'; c.textContent = ['🎉', '⭐', '🎸', '✨'][i % 4]; c.style.left = Math.random() * 100 + 'vw'; c.style.animationDelay = Math.random() * 0.3 + 's'; document.body.append(c); setTimeout(() => c.remove(), 1800); }
+}
+$('xpPill').onclick = () => { const x = store.get('xp', 0), l = xpLevel(x); say(`Level ${l}: ${x} Punkte gesamt, heute ${store.get('xpDay', {})[new Date().toISOString().slice(0, 10)] || 0}, noch ${xpFor(l + 1) - x} bis Level ${l + 1}. Punkte gibt es für jeden Ton, Akkord und Durchgang, der klappt.`); };
 function markPracticed() {
   const today = new Date().toISOString().slice(0, 10), s = store.get('streak', { last: '', days: 0 });
   if (s.last !== today) { const y = new Date(Date.now() - 864e5).toISOString().slice(0, 10); s.days = s.last === y ? s.days + 1 : 1; s.last = today; store.set('streak', s); }
@@ -1499,7 +1554,7 @@ function pfadHit() {
   pfad.hits[target] = (pfad.hits[target] || 0) + 1; markPracticed();
   const L = LEVELS[Math.min(pfad.level, LEVELS.length - 1)];
   if (L.c.every(c => (pfad.hits[c] || 0) >= NEED) && pfad.level < LEVELS.length - 1) { pfad.level++; pfad.hits = {}; say('🎉 ' + L.t + ' geschafft! Weiter mit ' + LEVELS[pfad.level].t + '.'); }
-  store.set('pfad', pfad); $('target').classList.add('ok-flash'); hold = -999; setTimeout(newTarget, 1100);
+  win(5, '✓ ' + target + ' richtig!'); store.set('pfad', pfad); $('target').classList.add('ok-flash'); hold = -999; setTimeout(newTarget, 1100);
 }
 $('nextBtn').onclick = newTarget;
 $('hearTarget').onclick = () => strum(target, audio().currentTime + 0.05);
@@ -1515,7 +1570,7 @@ function practiceTick() {
   } else if (learnMode === 'note') {
     $('noteHeard').textContent = 'Ich höre: ' + (lastPitch ? noteLabel(lastPitch.midi) : '–');
     hold = lastPitch && lastPitch.name === noteTarget ? hold + 1 : Math.min(hold, 0);
-    if (hold > 12) { noteScore++; markPracticed(); $('noteScore').textContent = noteScore + ' richtig'; $('noteTarget').classList.add('ok-flash'); hold = -999; setTimeout(newNoteTask, 900); }
+    if (hold > 12) { noteScore++; win(3, '✓ ' + noteTarget + ' gefunden!'); $('noteScore').textContent = noteScore + ' richtig'; $('noteTarget').classList.add('ok-flash'); hold = -999; setTimeout(newNoteTask, 900); }
   } else if (learnMode === 'mit' && mit.on && mit.cur >= 0 && lastChord === mit.prog[mit.cur][0]) mit.heard[mit.change] = (mit.heard[mit.change] || 0) + 1;
 }
 
@@ -1749,7 +1804,6 @@ function speedStart(seq, lens, tech, key, host) {
   host.after($('speedCard')); $('speedCard').hidden = false;
   $('spdTab').innerHTML = '<div class="fcol lab">' + [5, 4, 3, 2, 1, 0].map(s => `<span>${STR_NAMES[s]}</span>`).join('') + '</div>' +
     seq.map((p, i) => `<div class="fcol" id="sd${i}">` + [5, 4, 3, 2, 1, 0].map(s => p.s === s ? `<span class="n">${G.label(p, tech[i])}</span>` : '<span>–</span>').join('') + '</div>').join('');
-  $('speedCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
   if (!running) { say('Tipp auf „🎤 Mikrofon starten“, dann hört die App, was du spielst.', true); return; }
   speedRun();
 }
@@ -1789,7 +1843,7 @@ function speedEnd() {
   if (acc >= 0.9) { speed.bpm = Math.min(220, speed.bpm + 5); msg += ` → stark! Nächstes Tempo ${speed.bpm} BPM`; }
   else if (acc < 0.6) { speed.bpm = Math.max(40, speed.bpm - 5); msg += ` → langsamer: ${speed.bpm} BPM`; }
   else msg += ' → gleiches Tempo nochmal';
-  store.set('bpm.' + speed.key, speed.bpm); markPracticed();
+  store.set('bpm.' + speed.key, speed.bpm); win(Math.round(acc * 30), acc >= 0.9 ? `🔥 ${Math.round(acc * 100)} % im Takt!` : `${Math.round(acc * 100)} % im Takt`, acc >= 0.9);
   const top = hist.filter(h => h.acc >= 90).reduce((m, h) => Math.max(m, h.bpm), 0);
   $('spdMsg').textContent = msg; $('spdMsg').className = 'mid ' + (acc >= 0.9 ? 'ok-flash' : acc < 0.6 ? 'bad-flash' : '');
   $('spdSub').textContent = top ? `Bestwert mit 90 %+: ${top} BPM` : 'Ziel: 90 % im Takt, dann wird es schneller.';
@@ -1818,7 +1872,7 @@ function wechselTick() {
   $('wxTime').textContent = `0:${String(Math.ceil(left / 1000)).padStart(2, '0')}`;
   if (!left) {
     wx.on = false; $('wxStart').disabled = false; const h = store.get(wxKey(), []), best = h.length ? Math.max(...h.map(x => x.n)) : 0;
-    h.push({ d: Date.now(), n: wx.count }); store.set(wxKey(), h.slice(-30)); markPracticed();
+    h.push({ d: Date.now(), n: wx.count }); store.set(wxKey(), h.slice(-30)); win(wx.count, wx.count > best ? `🏆 ${wx.count} Wechsel, neuer Bestwert!` : `${wx.count} Wechsel in einer Minute`, wx.count > best);
     $('wxTime').textContent = wx.count > best ? '🏆 Neuer Bestwert!' : 'Zeit um!'; wxShow(); return;
   }
   const c = lastChord, A = $('wxA').value, B = $('wxB').value;
@@ -1941,10 +1995,10 @@ function earStart(mode) {
   const notes = src.filter(n => n.start >= t - 0.05 && n.start < t + 12).slice(0, 8);
   if (!notes.length) { say(mode === 'bass' ? 'An dieser Stelle wurde kein Bass erkannt. Spul weiter.' : 'An dieser Stelle wurde kein Gesang erkannt. Spul zu einer Stelle mit Gesang.', true); return; }
   songStop();
-  Object.assign(ear, { on: true, mode, notes, i: 0, hint: 0, t0: Math.max(0, notes[0].start - 0.3), t1: notes.at(-1).start + notes.at(-1).dur + 0.4, stable: 0, wrong: 0, needRelease: false });
+  Object.assign(ear, { on: true, mode, notes, i: 0, hint: 0, t0: Math.max(0, notes[0].start - 0.3), t1: notes.at(-1).start + notes.at(-1).dur + 0.4, stable: 0, wrong: 0, needRelease: false, won: false });
   ear.key = song.vocalNotes.length ? Core.detectKey(song.vocalNotes) : null;
   $('earTitle').textContent = mode === 'bass' ? 'Bass zuerst' : 'Melodie heraushören';
-  $('earCard').hidden = false; earShow(); earPlay(); $('earCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  $('earCard').hidden = false; earShow(); earPlay();
   if (!running) say('Tipp auf „🎤 Mikrofon starten“, dann hört die App, was du spielst.', true);
 }
 function earPlay() { // the passage, with the part you are looking for in front
@@ -1956,6 +2010,7 @@ function earShow() {
   const n = ear.notes.length, i = ear.i;
   $('earProg').textContent = `${Math.min(i, n)} / ${n}`;
   $('earFound').innerHTML = ear.notes.slice(0, i).map(nt => `<span>${ear.mode === 'bass' ? Core.name(nt.midi) : noteLabel(nt.midi)}${ear.mode === 'bass' && nt.chord ? ` → <b>${nt.chord}</b>` : ''}</span>`).join('');
+  if (i >= n && !ear.won) { ear.won = true; win(25, '🎉 Alles herausgehört!', true); }
   if (i >= n) { $('earMsg').textContent = '🎉 Alles herausgehört!'; $('earMsg').className = 'mid ok-flash'; $('earHint').textContent = ear.mode === 'bass' ? 'Die Akkorde stehen jetzt neben den Basstönen. Spiel die Stelle nochmal und begleite sie.' : 'Öffne die Stelle unter „Melodie ab hier“ als Tabs, um sie zu üben.'; markPracticed(); return; }
   $('earMsg').className = 'mid'; $('earMsg').textContent = i ? `Ton ${i + 1}: Such den nächsten ${ear.mode === 'bass' ? 'Basston' : 'Ton'}` : `Such den ersten ${ear.mode === 'bass' ? 'Basston' : 'Ton'}`;
   $('earHint').textContent = ear.hint ? earHintText() : 'Hör dir die Stelle an und probier auf der Gitarre. Die App sagt dir, ob du höher oder tiefer musst.';
@@ -2115,6 +2170,7 @@ function strumEnd() {
   $('stBpmVal').textContent = $('stBpm').value;
   const best = store.get(key, 0); if (acc >= 0.9 && st.bpm > best) { store.set(key, st.bpm); msg += ' · 🏆 Bestwert'; }
   $('stMsg').textContent = msg; $('stMsg').className = 'mid ' + (acc >= 0.9 ? 'ok-flash' : acc < 0.6 ? 'bad-flash' : '');
+  win(Math.round(acc * 30), acc >= 0.9 ? `🔥 ${Math.round(acc * 100)} % im Groove!` : `${Math.round(acc * 100)} % im Groove`, acc >= 0.9);
   $('stRes').textContent = extra ? 'Gestrichelt „zu viel“: Dort sollte die Hand in der Luft bleiben.' : 'Rot gestrichelt = Schlag fehlt, orange = knapp daneben.';
   markPracticed();
 }
@@ -2144,7 +2200,7 @@ function lkShow(cur = -1) {
   if (cur >= 0) { const p = d.tab[cur], tk = d.tech[cur].t;
     $('lkNow').textContent = `Ton ${cur + 1}: ${STR_NAMES[p.s]}-Saite, ${p.f ? 'Bund ' + p.f : 'leer'} · ${d.finger[cur] === 'leer' ? 'leere Saite' : 'Finger ' + d.finger[cur]}${tk ? ' · ' + G.TECH_NAMES[tk] : ''}`; }
   else $('lkNow').textContent = `${d.tab.length} Töne · Lage: Zeigefinger auf Bund ${Math.min(...d.tab.map(p => p.f).filter(f => f > 0))}`;
-  if (cur >= 0) { const el = $('lkTab').children[cur + 1]; if (el) el.scrollIntoView({ block: 'nearest', inline: 'nearest' }); }
+  if (cur >= 0) hScroll($('lkTab').children[cur + 1]);
 }
 function lkPlay(then) {
   stopAll(); cancelAnimationFrame(lk.raf); const d = lkData(), e = 30 / +$('lkBpm').value, t0 = audio().currentTime + 0.15; let p = 0;
@@ -2239,7 +2295,7 @@ function swAnalyze(x, sr, name, saved) {
   html += row('Idee für den Refrain', chorus, 'Startet auf einem anderen Akkord als die Strophe: so hebt sich der Refrain ab.');
   html += `<p class="sub">Alle Akkorde in ${key.name}: ${pal.join(' · ')}</p>`;
   $('swChords').innerHTML = html; $('swDg').innerHTML = pal.map(c => diagram(c)).join('');
-  $('swOut').hidden = false; say(`Fertig: ${key.name}, ca. ${top.bpm} BPM. Vorschläge unten.`);
+  $('swOut').hidden = false; if (!saved) win(10, '✍️ Song analysiert'); say(`Fertig: ${key.name}, ca. ${top.bpm} BPM. Vorschläge unten.`);
   sw.prog = prog || chorus;
   $('swArrCh').innerHTML = sw.rows.map((r, i) => `<option value="${i}">${r.lab.replace('🎤 ', '')}</option>`).join('');
   $('swArrCh').value = Math.max(0, sw.rows.findIndex(r => r.lab.includes('R&B')));
@@ -2349,6 +2405,7 @@ $('swOut').addEventListener('click', e => {
   }
 });
 
+panel = null; showPanel(store.get('panel', 'sw')); xpShow();
 newTarget(); showStreak();
 
 // ---------- offer the app as a file (artifact viewer only)
