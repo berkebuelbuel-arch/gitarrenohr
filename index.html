@@ -78,6 +78,14 @@ button,select,input{font:inherit;color:var(--fg)}
 .lw.now b{text-decoration:underline}
 .tablewrap{overflow-x:auto}
 textarea{width:100%;box-sizing:border-box;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px;font:inherit;color:var(--fg)}
+dialog#gripDlg{border:1px solid var(--line);border-radius:18px;background:var(--surface);color:var(--fg);padding:16px;width:min(94vw,560px);max-height:92vh;overflow:auto}
+dialog#gripDlg::backdrop{background:rgba(0,0,0,.45)}
+.gripwrap{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start}
+#gripSvg svg{width:200px;height:auto}
+#gripSteps{flex:1;min-width:220px;margin:0;padding-left:1.2em}
+#gripSteps li{margin:5px 0}
+.tapchord{cursor:pointer}
+.dg{cursor:pointer}
 .dg.now{outline:3px solid var(--accent);outline-offset:4px;border-radius:8px}
 .nowbar{display:grid;grid-template-columns:1fr 1fr;gap:10px;text-align:center}
 .nowbar b{display:block;font-family:var(--f-display);font-size:2.2rem;line-height:1.1}
@@ -200,6 +208,13 @@ header{display:flex;justify-content:space-between;align-items:center;gap:10px}
   <div class="tabs" id="subTabs" role="tablist"></div>
   <div class="status" id="status" role="status" hidden></div>
   <div class="toast" id="toast" aria-live="polite" hidden></div>
+  <dialog id="gripDlg" aria-labelledby="gripName">
+    <div class="prow"><h2 id="gripName">–</h2><span class="pill" id="gripPos"></span><button class="btn ghost small" id="gripClose" style="margin-left:auto" aria-label="Schließen">✕</button></div>
+    <div class="gripwrap"><div id="gripSvg"></div><ol id="gripSteps"></ol></div>
+    <div class="row"><button class="btn" id="gripHear">▶ Anhören</button><button class="btn ghost" id="gripEach">▶ Saite für Saite</button></div>
+    <div id="gripAlt"></div>
+    <p class="note">Tipps: Fingerkuppen senkrecht aufsetzen, knapp hinter das Metallstäbchen. Daumen hinten mittig am Hals. Spiel „Saite für Saite“: Schnarrt eine Saite, etwas fester drücken oder näher ans Stäbchen.</p>
+  </dialog>
 
   <!-- Idee: melody -> notes, tabs, chords -->
   <section class="panel" id="p-idee" hidden>
@@ -1014,7 +1029,7 @@ const GuitarCore = (() => {
         const { probs, fit } = onsetGrid(onsets, bar, s.g), hits = strumHits(s.p), step = s.g / (s.sig === '6/8' ? 2 : s.beats);
         for (let r = 0; r < s.g; r += step) {
           let sc = 0; for (let i = 0; i < s.g; i++) { const pr = probs[(i + r) % s.g]; sc += hits[i] ? pr : 1 - pr; }
-          sc = sc / s.g * (0.5 + 0.5 * fit) + (m === 1 ? 0.08 : 0); // onsets between the slots: wrong grid
+          sc = sc / s.g * (0.5 + 0.5 * fit) + (m === 1 ? 0.08 : 0) + (s.sig === '4/4' ? 0.02 : 0); // most songs are in 4/4: break near-ties that way // onsets between the slots: wrong grid
           if (!best || sc > best.score) best = { score: sc, bpm: Math.round(60 / per), rot: r };
         }
       }
@@ -1124,7 +1139,33 @@ const GuitarCore = (() => {
       return { start: p.start, end: p.end, words, changes };
     });
   }
-  return { chordSheet, OPEN, STRINGS, SHAPES, parseChord, chordShape, voicing, rhythm, tabify, tabText, lenSym, techniques, label, TECH_NAMES, SCALES, ARPS, scaleNotes, chordShapes, bestVoicing, positions, STRUMS, strumHits, strumDir, onsetGrid, strumRank, LICKS, lickIn, lickFit, rnb };
+  // fingering for a grip [E..e frets]: index-finger barre when the lowest played string starts at the lowest fret,
+  // a small barre for several strings on one fret when 4 fingers are not enough; -> { fingers: [per string: null x, 0 open, 1-4], barres: [{finger, fret, from, to}] } or null
+  function fingering(sh) {
+    const played = sh.map((f, s) => f == null ? null : { s, f }).filter(Boolean), fr = played.filter(p => p.f > 0);
+    const fingers = sh.map(f => f == null ? null : f === 0 ? 0 : -1), barres = [];
+    if (!fr.length) return { fingers, barres };
+    const lo = Math.min(...fr.map(p => p.f)), atLo = fr.filter(p => p.f === lo), low = played[0];
+    const barreOk = (fret, a, b) => sh.slice(a, b + 1).every(f => f == null || f >= fret) && !sh.slice(a, b + 1).some(f => f === 0);
+    let units = [];
+    if (atLo.length >= 2 && low.f === lo && barreOk(lo, atLo[0].s, atLo.at(-1).s)) { barres.push({ fret: lo, from: atLo[0].s, to: atLo.at(-1).s, notes: atLo }); }
+    const rest = fr.filter(p => !(barres.length && p.f === lo));
+    if (rest.length + barres.length > 4) { // try a mini barre on the fret with the most notes, highest strings first
+      const byF = {}; rest.forEach(p => (byF[p.f] = byF[p.f] || []).push(p));
+      const [f, ns] = Object.entries(byF).sort((a, b) => b[1].length - a[1].length || b[0] - a[0])[0];
+      let run = [ns.at(-1)]; for (let i = ns.length - 2; i >= 0; i--) { if (barreOk(+f, ns[i].s, run[0].s)) run.unshift(ns[i]); else break; }
+      if (run.length >= 2) units.push({ fret: +f, from: run[0].s, to: run.at(-1).s, notes: run, mini: true });
+      rest.filter(p => !run.includes(p) || run.length < 2).forEach(p => units.push({ fret: p.f, from: p.s, to: p.s, notes: [p] }));
+    } else rest.forEach(p => units.push({ fret: p.f, from: p.s, to: p.s, notes: [p] }));
+    units.sort((a, b) => a.fret - b.fret || a.from - b.from);
+    let n = barres.length ? 2 : 1;
+    for (const u of units) { u.finger = n++; if (u.mini) barres.push(u); }
+    if (barres[0] && !barres[0].mini) barres[0].finger = 1;
+    if (n - 1 > 4) return null;
+    [...barres, ...units].forEach(u => u.notes.forEach(p => fingers[p.s] = u.finger));
+    return { fingers, barres: barres.map(({ finger, fret, from, to, mini }) => mini ? { finger, fret, from, to, mini } : { finger, fret, from, to }) };
+  }
+  return { fingering, chordSheet, OPEN, STRINGS, SHAPES, parseChord, chordShape, voicing, rhythm, tabify, tabText, lenSym, techniques, label, TECH_NAMES, SCALES, ARPS, scaleNotes, chordShapes, bestVoicing, positions, STRUMS, strumHits, strumDir, onsetGrid, strumRank, LICKS, lickIn, lickFit, rnb };
 })();
 
 // ---- song splitting: center/side spectral masking (vocals sit in the middle of a stereo mix)
@@ -2534,15 +2575,15 @@ const ly = { rec: false, chunks: [], t: 0, len: 0, res: null, heard: [], speech:
 function lyCapture() {
   const sr = ctx.sampleRate, now = ctx.currentTime; let n = Math.min(buf.length, Math.round((now - ly.t) * sr)); if (n <= 0) return;
   ly.chunks.push(buf.slice(buf.length - n)); ly.t = now; ly.len += n;
-  $('lyLive').textContent = `Aufnahme … ${Math.round(ly.len / sr)} s` + (ly.heard.length ? ' · Text: „' + ly.heard.at(-1) + '“' : '');
+  const tx = ly.interim || ly.heard.at(-1); $('lyLive').textContent = `Aufnahme … ${Math.round(ly.len / sr)} s` + (tx ? ' · Ich verstehe: „' + tx + '“' : ly.speechErr ? ' · Text-Mitschreiben geht hier nicht, tipp ihn danach ein' : '');
   if (ly.len > sr * 180) $('lyRec').click();
 }
 const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
 function lySpeechStart() { // browser speech-to-text; optional, many browsers don't have it or can't share the mic
   if (!SpeechRec || !$('lyAuto').checked) return;
   try {
-    const r = new SpeechRec(); r.lang = 'de-DE'; r.continuous = true; r.interimResults = false;
-    r.onresult = e => { for (let i = e.resultIndex; i < e.results.length; i++) if (e.results[i].isFinal) ly.heard.push(e.results[i][0].transcript.trim()); };
+    const r = new SpeechRec(); r.lang = 'de-DE'; r.continuous = true; r.interimResults = true; r.maxAlternatives = 1;
+    r.onresult = e => { ly.interim = ''; for (let i = e.resultIndex; i < e.results.length; i++) { const tx = e.results[i][0].transcript.trim(); if (e.results[i].isFinal) { if (tx) ly.heard.push(tx); } else ly.interim = tx; } };
     r.onerror = e => { ly.speechErr = e.error; };
     r.onend = () => { if (ly.rec && !ly.speechErr) try { r.start(); } catch (err) {} };
     r.start(); ly.speech = r;
@@ -2580,7 +2621,7 @@ function lyRender() {
   const r = ly.res; if (!r) return;
   const bar = 60 / r.bpm * r.top.beats, { tonic: k, minor } = r.key, st = $('lyStyle').value;
   const chords = st === 'rnb' ? G.rnb(Core.harmonize(r.notes, bar).chords, k, minor) : Core.harmonize(r.notes, bar, st).chords;
-  const sheet = G.chordSheet(r.notes, $('lyText').value.split('\n'), chords, bar);
+  const sheet = G.chordSheet(r.notes, $('lyText').value.split('\n'), chords, bar, Math.max(0.35, Math.min(0.9, 45 / r.bpm))); // a pause of about 3/4 beat ends a sung line
   Object.assign(r, { chords, sheet, bar });
   $('lyFacts').textContent = `${r.key.name} · ${r.bpm} BPM · ${r.top.sig}`;
   $('lyTable').innerHTML = sheet.map((row, i) => `<tr id="lyr${i}"><td>${fmtT(row.start)}</td><td>` +
@@ -2637,12 +2678,63 @@ $('lyList').onclick = async e => {
 };
 lyList();
 
+// ---------- tap any chord: big grip with finger numbers, fret, step by step, sound
+const FINGER = ['', 'Zeigefinger (1)', 'Mittelfinger (2)', 'Ringfinger (3)', 'kleiner Finger (4)'];
+const STR_LONG = ['tiefe E-Saite (dickste)', 'A-Saite', 'D-Saite', 'G-Saite', 'H-Saite', 'hohe e-Saite (dünnste)'];
+function gripSvg(sh, fg) {
+  const fretted = sh.filter(f => f > 0), maxF = Math.max(0, ...fretted), base = maxF <= 4 ? 1 : Math.min(...fretted), xs = [24, 54, 84, 114, 144, 174], fy = f => 40 + (f - base + 1) * 40 - 20;
+  let s = `<svg viewBox="0 0 200 230" role="img" aria-label="Griffbild">`;
+  if (base === 1) s += '<rect x="22" y="36" width="154" height="6" fill="currentColor"/>'; // the nut; higher up the fret numbers on the left say where you are
+  for (let f = 1; f <= 4; f++) s += `<line x1="24" x2="174" y1="${40 + f * 40}" y2="${40 + f * 40}" stroke="var(--line)" stroke-width="2"/><text x="6" y="${40 + f * 40 - 16}" font-size="10" fill="var(--muted)">${base + f - 1}</text>`;
+  xs.forEach((x, i) => s += `<line x1="${x}" x2="${x}" y1="40" y2="200" stroke="var(--string)" stroke-width="${2.6 - i * 0.3}"/><text x="${x}" y="222" text-anchor="middle" font-size="12" fill="var(--muted)">${STR_NAMES[i]}</text>`);
+  (fg ? fg.barres : []).forEach(b => s += `<rect x="${xs[b.from] - 13}" y="${fy(b.fret) - 13}" width="${xs[b.to] - xs[b.from] + 26}" height="26" rx="13" fill="var(--accent)"/><text x="${(xs[b.from] + xs[b.to]) / 2}" y="${fy(b.fret) + 5}" text-anchor="middle" font-size="14" font-weight="700" fill="var(--bg)">${b.finger}</text>`);
+  sh.forEach((f, i) => {
+    if (f == null) s += `<text x="${xs[i]}" y="28" text-anchor="middle" font-size="18" fill="var(--warn)">✕</text>`;
+    else if (f === 0) s += `<circle cx="${xs[i]}" cy="22" r="7" fill="none" stroke="var(--good)" stroke-width="2.5"/>`;
+    else if (!(fg && fg.barres.some(b => b.fret === f && i >= b.from && i <= b.to && fg.fingers[i] === b.finger))) s += `<circle cx="${xs[i]}" cy="${fy(f)}" r="13" fill="var(--accent)"/><text x="${xs[i]}" y="${fy(f) + 5}" text-anchor="middle" font-size="14" font-weight="700" fill="var(--bg)">${fg ? fg.fingers[i] : ''}</text>`;
+  });
+  return s + '</svg>';
+}
+function gripShow(name, sh) {
+  const all = G.chordShapes(name); sh = sh || G.chordShape(name) || all[0]; if (!sh) return;
+  const fg = G.fingering(sh), fr = sh.filter(f => f > 0), lo = fr.length ? Math.min(...fr) : 0, hi = fr.length ? Math.max(...fr) : 0, first = sh.findIndex(f => f != null);
+  $('gripName').textContent = name + ' greifen';
+  $('gripPos').textContent = !fr.length ? 'nur leere Saiten' : fg && fg.barres.some(b => !b.mini) ? `Barré in Bund ${lo}` : lo === hi ? `Bund ${lo}` : `Bund ${lo} bis ${hi}`;
+  const steps = [];
+  if (fg) {
+    fg.barres.filter(b => !b.mini).forEach(b => steps.push(`<b>${FINGER[b.finger]}</b> liegt flach über ${STR_NAMES[b.from]} bis ${STR_NAMES[b.to]} in <b>Bund ${b.fret}</b> (Barré). Dicht hinter das Stäbchen, Finger leicht auf die Seite kippen.`));
+    const done = new Set(); [1, 2, 3, 4].forEach(f => { if (done.has(f) || fg.barres.some(b => b.finger === f && !b.mini)) return; done.add(f);
+      const mini = fg.barres.find(b => b.finger === f && b.mini);
+      if (mini) steps.push(`<b>${FINGER[f]}</b> drückt ${STR_NAMES[mini.from]} bis ${STR_NAMES[mini.to]} zusammen in <b>Bund ${mini.fret}</b> (kleiner Barré).`);
+      else sh.forEach((x, s2) => { if (fg.fingers[s2] === f) steps.push(`<b>${FINGER[f]}</b> auf die <b>${STR_LONG[s2]}</b>, <b>Bund ${x}</b>.`); }); });
+  } else fr.length && steps.push('Die Punkte zeigen, wo du drückst (die Fingerzuordnung ist hier frei).');
+  const open = sh.map((f, i) => f === 0 ? STR_NAMES[i] : null).filter(Boolean), mute = sh.map((f, i) => f == null ? STR_NAMES[i] : null).filter(Boolean);
+  if (open.length) steps.push(`Leer mitklingen lassen (○): <b>${open.join(', ')}</b>, nicht berühren!`);
+  if (mute.length) steps.push(`Nicht anschlagen (✕): <b>${mute.join(', ')}</b>. Fang deinen Schlag erst bei der <b>${STR_LONG[first]}</b> an.`);
+  steps.push('Erst greifen, dann alle Saiten ab der ersten erlaubten von oben nach unten anschlagen.');
+  $('gripSvg').innerHTML = gripSvg(sh, fg); $('gripSteps').innerHTML = steps.map(x => `<li>${x}</li>`).join('');
+  const alts = all.filter(a => a.join() !== sh.join());
+  $('gripAlt').innerHTML = alts.length ? '<div class="sub">Andere Griffe für ' + name + ':</div><div class="row">' + alts.map((a, i) => { const f2 = a.filter(f => f > 0); return `<button class="btn ghost small" data-alt="${i}">${a.includes(0) ? 'Offen' : 'Bund ' + Math.min(...f2)}</button>`; }).join('') + '</div>' : '';
+  $('gripAlt').onclick = e => { const b = e.target.closest('[data-alt]'); if (b) gripShow(name, alts[+b.dataset.alt]); };
+  $('gripHear').onclick = () => { const v = G.voicing(sh), t = audio().currentTime + 0.05; v.forEach((m, i) => pluck(m, t + i * 0.03, 0.6)); };
+  $('gripEach').onclick = () => { const v = G.voicing(sh), t = audio().currentTime + 0.05; v.forEach((m, i) => pluck(m, t + i * 0.55, 0.8)); };
+  if (!$('gripDlg').open) $('gripDlg').showModal();
+}
+$('gripClose').onclick = () => $('gripDlg').close();
+$('gripDlg').onclick = e => { if (e.target === $('gripDlg')) $('gripDlg').close(); }; // tap outside closes
+document.addEventListener('click', e => { // any chord name or grip on the page opens its explanation
+  if (e.target.closest('button, a, select, input, textarea, dialog, label')) return;
+  const el = e.target.closest('.dg, .prog .c, .lw b, .lyt b, .nowbar b, #target, #mitNow, #jmNow, #rdNow, #chordBig, #wxDg .dg'); if (!el) return;
+  const name = (el.classList.contains('dg') ? (el.querySelector('span') || el).textContent : el.textContent).trim();
+  if (G.parseChord(name) && G.chordShapes(name).length) gripShow(name);
+});
+
 // ---------- beginner help: every view explains itself in steps, plus the words you need
 const TERMS = {
   mikro: ['Mikrofon', 'Ganz oben „🎤 Mikrofon starten“ tippen und erlauben. Leg das Handy 30 bis 50 cm vor die Gitarre. Kopfhörer helfen, wenn die App gleichzeitig Musik spielt.'],
   saiten: ['Saiten', 'Von dick nach dünn heißen sie E A D G H e. Die dicke tiefe E-Saite ist beim Spielen oben, die dünne hohe e-Saite unten.'],
   bund: ['Bund', 'Die Felder zwischen den Metallstäbchen auf dem Hals. Bund 1 ist am Kopf der Gitarre. Drück mit der Fingerkuppe knapp hinter dem Stäbchen.'],
-  griffbild: ['Griffbild lesen', 'Senkrechte Linien = Saiten (links die dicke E, rechts die dünne e). Waagerechte Linien = Bünde. Punkt = dort drücken. o = Saite leer mitklingen lassen. x = Saite nicht anschlagen. Balken = Barré: ein Finger drückt mehrere Saiten.'],
+  griffbild: ['Griffbild lesen', 'Senkrechte Linien = Saiten (links die dicke E, rechts die dünne e). Waagerechte Linien = Bünde. Punkt = dort drücken. o = Saite leer mitklingen lassen. x = Saite nicht anschlagen. Balken = Barré: ein Finger drückt mehrere Saiten. Tipp auf jedes Griffbild oder jeden Akkordnamen: Dann siehst du groß, welcher Finger wohin kommt.'],
   akkord: ['Akkord', 'Mehrere Töne gleichzeitig: Die linke Hand greift das Griffbild, die rechte schlägt die Saiten an.'],
   strumming: ['Strumming', 'Mit der rechten Hand über die Saiten schlagen, mit Plektrum oder Daumen. Die Hand pendelt immer gleichmäßig runter und hoch, auch wenn sie nicht jedes Mal trifft.'],
   takt: ['Takt und Zählen', 'Ein Takt hat meist 4 Schläge. Zähl laut „1 und 2 und 3 und 4 und“. Auf den Zahlen geht die Hand runter, auf dem „und“ hoch.'],
