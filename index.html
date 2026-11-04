@@ -65,6 +65,8 @@ button,select,input{font:inherit;color:var(--fg)}
 .dg svg{width:96px;height:auto}
 .diagrams.mini svg{width:58px}
 .diagrams.mini{gap:6px}
+.yt{position:relative;aspect-ratio:16/9;border-radius:12px;overflow:hidden;background:#000}
+.yt iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
 .dg.now{outline:3px solid var(--accent);outline-offset:4px;border-radius:8px}
 .nowbar{display:grid;grid-template-columns:1fr 1fr;gap:10px;text-align:center}
 .nowbar b{display:block;font-family:var(--f-display);font-size:2.2rem;line-height:1.1}
@@ -373,7 +375,14 @@ header{display:flex;justify-content:space-between;align-items:center;gap:10px}
 
   <!-- Radio: key and chords of whatever music is playing in the room -->
   <section class="panel" id="p-radio" hidden>
-    <p class="note">Lass ein Lied über einen Lautsprecher laufen (Radio, Handy, Spotify), starte das Mikrofon und spiel mit. Die App erkennt nach einigen Sekunden die Tonart und zeigt live die Akkorde.</p>
+    <div class="card">
+      <h2>▶ YouTube-Video abspielen</h2>
+      <div class="row"><input type="text" id="ytUrl" placeholder="YouTube-Link einfügen" style="flex:1;min-width:200px" inputmode="url" autocomplete="off"><button class="btn" id="ytLoad">Laden</button></div>
+      <div class="yt" id="ytBox" hidden></div>
+      <div class="row"><button class="btn ghost small" id="ytTab">🖥️ Ton direkt vom Tab holen (Chrome am Computer)</button></div>
+      <p class="note">Das Video läuft hier in der App, die App hört live mit und zeigt Tonart und Akkorde. Am Handy: „🎤 Mikrofon starten“, Lautsprecher laut, keine Kopfhörer. Am Computer in Chrome geht es ohne Mikrofon: „Ton direkt vom Tab holen“, diesen Tab wählen und „Tab-Audio teilen“ anhaken. Heruntergeladen wird nichts.</p>
+    </div>
+    <p class="note">Geht auch ohne YouTube: Lass ein Lied über einen Lautsprecher laufen (Radio, Handy, Spotify), starte das Mikrofon und spiel mit. Die App erkennt nach einigen Sekunden die Tonart und zeigt live die Akkorde.</p>
     <div class="card center">
       <div class="sub">Akkord jetzt</div>
       <div class="big" id="rdNow">–</div>
@@ -1172,7 +1181,7 @@ let panel = 'idee';
 
 // ---------- tabs
 const GROUPS = { sw: [['sw', 'Song schreiben'], ['jam', 'Jam-Band']], ueb: [['strum', 'Strumming'], ['licks', 'Licks'], ['ueben', 'Akkorde & Tonleitern'], ['lieder', 'Lieder']],
-  erk: [['idee', 'Idee → Tabs'], ['hoeren', 'Hören'], ['stimmen', 'Stimmen'], ['song', 'Song zerlegen'], ['radio', 'Radio']], mem: [['gespeichert', 'Gespeichert']] };
+  erk: [['idee', 'Idee → Tabs'], ['hoeren', 'Hören'], ['stimmen', 'Stimmen'], ['song', 'Song zerlegen'], ['radio', 'Radio & YouTube']], mem: [['gespeichert', 'Gespeichert']] };
 const groupOf = p => Object.keys(GROUPS).find(g => GROUPS[g].some(([id]) => id === p));
 document.querySelectorAll('.nv').forEach(b => b.onclick = () => showPanel(store.get('last.' + b.dataset.g, GROUPS[b.dataset.g][0][0])));
 $('subTabs').onclick = e => { const b = e.target.closest('.tab'); if (b) showPanel(b.dataset.p); };
@@ -1277,17 +1286,23 @@ function diagram(name, size = '') {
 
 // ---------- microphone + live analysis loop
 let analyser, buf, running = false, micInfo = () => '', quiet = 0, chordHold = [], lastChord = null, lastPitch = null, lastMidiF = null;
+let inStream = null;
+async function listen(stream, label, msg) { // any audio input (microphone or a shared browser tab) feeds the live analysis
+  if (running) { running = false; await new Promise(r => requestAnimationFrame(r)); }
+  if (inStream && inStream !== stream) inStream.getTracks().forEach(t => t.stop()); inStream = stream;
+  await ctx.resume(); analyser = ctx.createAnalyser(); analyser.fftSize = 16384;
+  const mute = ctx.createGain(); mute.gain.value = 0;
+  ctx.createMediaStreamSource(stream).connect(analyser); analyser.connect(mute); mute.connect(ctx.destination); // Safari only runs nodes that reach the speakers
+  micInfo = () => { const t = stream.getAudioTracks()[0]; return `Ton-Engine: ${ctx.state}, ${ctx.sampleRate} Hz · Eingang: ${t ? t.readyState + (t.muted ? ', stumm' : '') : 'keiner'}`; };
+  buf = new Float32Array(analyser.fftSize); running = true; quiet = 0;
+  $('micBtn').textContent = label; $('level').hidden = false; say(msg); loop();
+}
 $('micBtn').onclick = async () => {
-  if (running) { running = false; $('micBtn').textContent = '🎤 Mikrofon starten'; $('level').hidden = true; say('Mikrofon gestoppt.'); return; }
+  if (running) { running = false; if (inStream) inStream.getTracks().forEach(t => t.stop()); inStream = null; $('micBtn').textContent = '🎤 Mikrofon starten'; $('level').hidden = true; say('Zuhören gestoppt.'); return; }
   try {
     audio(); // create + resume inside the tap, or iOS/Safari keeps it silent
     const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } }); // voice-call filters cut guitar notes and chords
-    await ctx.resume(); analyser = ctx.createAnalyser(); analyser.fftSize = 16384;
-    const mute = ctx.createGain(); mute.gain.value = 0;
-    ctx.createMediaStreamSource(stream).connect(analyser); analyser.connect(mute); mute.connect(ctx.destination); // Safari only runs nodes that reach the speakers
-    micInfo = () => { const t = stream.getAudioTracks()[0]; return `Ton-Engine: ${ctx.state}, ${ctx.sampleRate} Hz · Mikro: ${t ? t.readyState + (t.muted ? ', stumm' : '') : 'keins'}`; };
-    buf = new Float32Array(analyser.fftSize); running = true; quiet = 0;
-    $('micBtn').textContent = '■ Mikrofon stoppen'; $('level').hidden = false; say('Ich höre zu …'); loop();
+    await listen(stream, '■ Mikrofon stoppen', 'Ich höre zu …');
   } catch (e) {
     const why = !navigator.mediaDevices ? 'Dieser Browser gibt kein Mikrofon frei. Öffne den Link direkt in Safari oder Chrome, nicht in WhatsApp, Instagram oder der Claude-App. Oder nutze „Mit Handy aufnehmen“.'
       : e.name === 'NotAllowedError' ? 'Mikrofon nicht erlaubt. Erlaube es in den Browser-Einstellungen für diese Seite und lade neu. Oder nutze „Mit Handy aufnehmen“.'
@@ -2092,6 +2107,24 @@ function radioTick(c, r) {
     const vs = radio.shown && G.bestVoicing(radio.shown, radio.lastNotes || []);
     $('rdBoard').innerHTML = fretboard(radio.pcs, radio.key.tonic, null, chordTones, vs ? vs.map((f, s) => f == null ? null : { s, f, main: true }).filter(Boolean) : []); }
 }
+// ---------- YouTube: the official embedded player; the app only listens, it never downloads
+const ytId = u => { const m = /(?:youtu\.be\/|[?&]v=|shorts\/|embed\/|live\/)([\w-]{11})/.exec(u) || /^([\w-]{11})$/.exec(u.trim()); return m && m[1]; };
+function ytShow(id) { $('ytBox').innerHTML = `<iframe src="https://www.youtube-nocookie.com/embed/${id}?playsinline=1&rel=0" title="YouTube-Video" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>`; $('ytBox').hidden = false; }
+$('ytLoad').onclick = () => {
+  const id = ytId($('ytUrl').value); if (!id) { say('Das ist kein YouTube-Link. Kopier ihn in der YouTube-App über „Teilen“ → „Link kopieren“.', true); return; }
+  store.set('yt', id); ytShow(id); $('rdReset').click();
+  say(running ? 'Spiel das Video ab, ich höre mit.' : 'Spiel das Video ab und tipp oben auf „🎤 Mikrofon starten“, dann erkenne ich die Akkorde.');
+};
+$('ytUrl').onkeydown = e => e.key === 'Enter' && $('ytLoad').click();
+{ const id = ytId(String(store.get('yt', ''))); if (id) { $('ytUrl').value = 'https://youtu.be/' + id; ytShow(id); } }
+$('ytTab').onclick = async () => {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) { say('Das geht nur in Chrome oder Edge am Computer. Am Handy nimm „🎤 Mikrofon starten“.', true); return; }
+  try {
+    audio(); const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }, preferCurrentTab: true, selfBrowserSurface: 'include' });
+    if (!stream.getAudioTracks().length) { stream.getTracks().forEach(t => t.stop()); say('Kein Ton geteilt. Nochmal und dabei „Tab-Audio teilen“ anhaken.', true); return; }
+    await listen(stream, '■ Zuhören stoppen', 'Ich höre den Ton vom Tab. Spiel das Video ab.'); $('rdReset').click();
+  } catch (e) { say(e.name === 'NotAllowedError' ? 'Teilen abgebrochen.' : 'Tab-Ton geht hier nicht: ' + e.message, true); }
+};
 $('rdReset').onclick = () => { Object.assign(radio, { acc: new Array(12).fill(0), frames: 0, key: null, hold: [], shown: null, hist: [] }); $('rdKey').textContent = 'Tonart: wird erkannt …'; $('rdHist').innerHTML = ''; $('rdNow').textContent = '–'; $('rdDg').innerHTML = ''; $('rdBoard').innerHTML = ''; };
 
 // ---------- strumming trainer: the app plays the pattern, shows the hand, then listens to your strums
@@ -2461,8 +2494,8 @@ const HELP = {
   idee: [['Mikrofon starten, dann „● Idee aufnehmen“.', 'Summ, sing oder spiel deine Melodie, dann „■ Stopp“.', 'Du bekommst Noten, Tabs und passende Akkorde und kannst sie anhören, speichern und nachspielen.'], ['tab', 'akkord', 'mikro']],
   hoeren: [['Mikrofon starten.', 'Spiel einen Ton oder Akkord und lass ihn klingen.', 'Oben steht sein Name, unten auf dem Griffbrett, wo du ihn gespielt hast.'], ['saiten', 'bund', 'griffbild']],
   stimmen: [['Mikrofon starten.', 'Eine Saite einzeln anschlagen, zum Beispiel die dicke E.', 'Steht die Nadel links (zu tief), den Wirbel fester drehen. Rechts (zu hoch): lockerer. In der Mitte und grün = gestimmt.', 'Das für alle 6 Saiten. Vor jedem Üben kurz stimmen!'], ['saiten']],
-  song: [['Eine Musikdatei laden, die du besitzt (MP3, M4A, WAV).', 'Die App trennt Gesang, Begleitung und Bass und zeigt die Akkorde im Zeitverlauf.', 'Spiel mit, langsamer oder ohne Gesang.'], ['akkord', 'tonart']],
-  radio: [['Mikrofon starten und Musik laufen lassen (Radio, Lautsprecher).', 'Die App zeigt live Tonart und Akkord, damit du mitspielen kannst.'], ['tonart', 'akkord', 'tonleiter']],
+  song: [['Eine Musikdatei laden, die du besitzt (MP3, M4A, WAV). Für YouTube-Songs nimm „Radio & YouTube“: dort läuft das Video und die App hört mit.', 'Die App trennt Gesang, Begleitung und Bass und zeigt die Akkorde im Zeitverlauf.', 'Spiel mit, langsamer oder ohne Gesang.'], ['akkord', 'tonart']],
+  radio: [['YouTube-Link einfügen und „Laden“ tippen (oder Musik über einen Lautsprecher laufen lassen).', 'Oben „🎤 Mikrofon starten“ und das Video abspielen. Am Computer in Chrome: „Ton direkt vom Tab holen“.', 'Nach ein paar Sekunden zeigt die App die Tonart, den Akkord, der gerade läuft, und sein Griffbild.', 'Spiel mit! Die Pentatonik auf dem Griffbrett passt fast immer für eigene Melodien.', 'Neues Lied? „Neu erkennen“ tippen.'], ['tonart', 'akkord', 'tonleiter']],
   gespeichert: [['Hier liegen deine gespeicherten Ideen. Antippen zum Öffnen.'], []]
 };
 Object.entries(HELP).forEach(([id, [steps, terms]]) => {
