@@ -67,6 +67,17 @@ button,select,input{font:inherit;color:var(--fg)}
 .diagrams.mini{gap:6px}
 .yt{position:relative;aspect-ratio:16/9;border-radius:12px;overflow:hidden;background:#000}
 .yt iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+.lyt{width:100%;border-collapse:collapse}
+.lyt th{text-align:left;font-size:.8rem;color:var(--muted);border-bottom:1px solid var(--line);padding:4px 6px}
+.lyt td{border-bottom:1px solid var(--line);padding:8px 6px;vertical-align:top}
+.lyt td:first-child{font-family:var(--f-mono);color:var(--muted);font-size:.85rem;white-space:nowrap}
+.lyt td:last-child{font-size:.88rem}
+.lyt tr.now td{background:color-mix(in srgb,var(--accent) 14%,transparent)}
+.lw{display:inline-block;margin:0 .35em .25em 0;vertical-align:top}
+.lw b{display:block;font-family:var(--f-display);color:var(--accent);font-size:.95rem;height:1.25em;line-height:1.25}
+.lw.now b{text-decoration:underline}
+.tablewrap{overflow-x:auto}
+textarea{width:100%;box-sizing:border-box;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px;font:inherit;color:var(--fg)}
 .dg.now{outline:3px solid var(--accent);outline-offset:4px;border-radius:8px}
 .nowbar{display:grid;grid-template-columns:1fr 1fr;gap:10px;text-align:center}
 .nowbar b{display:block;font-family:var(--f-display);font-size:2.2rem;line-height:1.1}
@@ -417,6 +428,34 @@ header{display:flex;justify-content:space-between;align-items:center;gap:10px}
     </div>
     <div class="card center" id="stFeed" hidden><div class="mid" id="stMsg">–</div><div class="sub" id="stRes"></div></div>
     <p class="note">↓ = Abschlag, ↑ = Aufschlag, ✕ = gedämpfter Schlag (Chuck), B = nur die Basssaite. Blasse Pfeile: die Hand bewegt sich weiter, trifft die Saiten aber nicht. Beim Nachspielen prüft die App, ob jeder Schlag im Takt kommt und ob du bei Luftschlägen in der Luft bleibst. Ob du ab- oder aufwärts schlägst, kann ein Mikrofon nicht sicher hören: Darauf achtest du selbst mit der Hand-Animation.</p>
+  </section>
+
+  <!-- Lyrics & chords -->
+  <section class="panel" id="p-lyr" hidden>
+    <div class="card">
+      <h2>1. Deine Lyrics</h2>
+      <p class="sub">Eine Zeile pro gesungenem Satz. Du kannst den Text vorher eintippen oder beim Singen mitschreiben lassen und danach korrigieren.</p>
+      <textarea id="lyText" rows="5" placeholder="Hallo, wie geht's dir?&#10;Wie war heute dein Tag?"></textarea>
+      <label><input type="checkbox" id="lyAuto" checked> Text beim Singen automatisch mitschreiben</label>
+    </div>
+    <div class="card">
+      <h2>2. Singen</h2>
+      <div class="row"><button class="btn" id="lyRec">● Singen und aufnehmen</button><label class="file">📁 Aufnahme laden<input type="file" id="lyFile" accept="audio/*"></label></div>
+      <div class="sub" id="lyLive"></div>
+    </div>
+    <div id="lyOut" hidden>
+      <div class="card">
+        <div class="prow"><h2>3. Text mit Akkorden</h2><span class="pill" id="lyFacts"></span></div>
+        <div class="row"><label>Akkord-Stil <select id="lyStyle"><option value="rnb">R&B (maj7, m7, m9, 9)</option><option value="">Klassisch</option><option value="einfach">Ganz einfach (3 Akkorde)</option><option value="traurig">Traurig / gefühlvoll</option><option value="spannend">Spannend</option></select></label><button class="btn ghost small" id="lyApply">↻ Text neu zuordnen</button></div>
+        <div class="nowbar"><div><span class="sub">Jetzt</span><b id="lyNow">–</b></div><div><span class="sub">Gleich danach</span><b id="lyNext">–</b></div></div>
+        <div class="tablewrap"><table class="lyt"><thead><tr><th>Zeit</th><th>Text mit Akkorden</th><th>Wann wechseln</th></tr></thead><tbody id="lyTable"></tbody></table></div>
+        <p class="note">Der Akkord steht über dem Wort, bei dem du wechselst: Schlag ihn genau auf dieses Wort an und lass ihn klingen, bis der nächste kommt.</p>
+        <div class="row"><button class="btn" id="lyPlay">▶ Mit Band anhören</button><button class="btn ghost" id="lyStop">■ Stopp</button><button class="btn ghost" id="lySave">💾 Speichern</button><button class="btn ghost" id="lyStrum">🎸 Im Strumming üben</button></div>
+        <div class="sub">Diese Akkorde brauchst du:</div><div class="diagrams" id="lyDg"></div>
+      </div>
+      <div class="card"><h2>4. Passende Tonleitern</h2><div id="lyScales"></div><div class="tabbox"><div id="lyBoard"></div></div></div>
+    </div>
+    <div class="card"><h2>Gespeicherte Lyrics</h2><div id="lyList" class="sub">Noch nichts gespeichert.</div></div>
   </section>
 
   <!-- Call and response licks -->
@@ -1063,7 +1102,29 @@ const GuitarCore = (() => {
     const k = [sh, sh - 12].filter(k => Math.min(...fr) + k >= 0 && Math.max(...fr) + k <= 17).sort((a, b) => Math.abs(a) - Math.abs(b))[0] ?? sh;
     return lick.notes.map(([s, f, l, t]) => [s, f + k, l, t]);
   }
-  return { OPEN, STRINGS, SHAPES, parseChord, chordShape, voicing, rhythm, tabify, tabText, lenSym, techniques, label, TECH_NAMES, SCALES, ARPS, scaleNotes, chordShapes, bestVoicing, positions, STRUMS, strumHits, strumDir, onsetGrid, strumRank, LICKS, lickIn, lickFit, rnb };
+  // lyrics sheet: sung notes -> phrases (split at pauses), one lyric line per phrase, chord changes placed on the word sung nearest to them
+  // chords = one per bar starting at the first note; returns [{start, end, words:[{w, chord}], changes:[{t, chord, word}]}]
+  function chordSheet(notes, lines, chords, bar, gap = 0.6) {
+    if (!notes.length || !chords.length) return [];
+    const t0 = notes[0].start, ph = [];
+    notes.forEach(n => { const l = ph.at(-1); if (l && n.start - l.end <= gap) { l.notes.push(n); l.end = Math.max(l.end, n.start + n.dur); } else ph.push({ start: n.start, end: n.start + n.dur, notes: [n] }); });
+    let ls = lines.map(l => l.trim()).filter(Boolean);
+    if (ls.length > ph.length) ls = [...ls.slice(0, ph.length - 1), ls.slice(ph.length - 1).join(' ')]; // more lines than phrases: the rest goes to the last one
+    const chordAt = t => chords[Math.max(0, Math.min(chords.length - 1, Math.floor((t - t0) / bar + 1e-6)))];
+    return ph.map((p, i) => {
+      const words = (ls[i] || '').split(/\s+/).filter(Boolean).map(w => ({ w, chord: null }));
+      const wt = words.map((_, j) => p.notes.length >= words.length ? p.notes[Math.floor(j * p.notes.length / words.length)].start : p.start + (p.end - p.start) * j / words.length);
+      const changes = [{ t: p.start, chord: chordAt(p.start) }];
+      for (let k = Math.floor((p.start - t0) / bar + 1e-6) + 1; t0 + k * bar < p.end; k++) { const c = chordAt(t0 + k * bar); if (c !== changes.at(-1).chord) changes.push({ t: t0 + k * bar, chord: c }); }
+      changes.forEach((ch, n) => {
+        if (!words.length) return; let j = 0; wt.forEach((t, k) => { if (Math.abs(t - ch.t) < Math.abs(wt[j] - ch.t)) j = k; });
+        while (j < words.length - 1 && words[j].chord && n) j++; // two changes on one word: push the later one on
+        words[j].chord = ch.chord; ch.word = words[j].w;
+      });
+      return { start: p.start, end: p.end, words, changes };
+    });
+  }
+  return { chordSheet, OPEN, STRINGS, SHAPES, parseChord, chordShape, voicing, rhythm, tabify, tabText, lenSym, techniques, label, TECH_NAMES, SCALES, ARPS, scaleNotes, chordShapes, bestVoicing, positions, STRUMS, strumHits, strumDir, onsetGrid, strumRank, LICKS, lickIn, lickFit, rnb };
 })();
 
 // ---- song splitting: center/side spectral masking (vocals sit in the middle of a stereo mix)
@@ -1180,7 +1241,7 @@ const noteLabel = midi => Core.name(midi) + (Math.floor(midi / 12) - 1);
 let panel = 'idee';
 
 // ---------- tabs
-const GROUPS = { sw: [['sw', 'Song schreiben'], ['jam', 'Jam-Band']], ueb: [['strum', 'Strumming'], ['licks', 'Licks'], ['ueben', 'Akkorde & Tonleitern'], ['lieder', 'Lieder']],
+const GROUPS = { sw: [['sw', 'Song schreiben'], ['lyr', 'Lyrics & Akkorde'], ['jam', 'Jam-Band']], ueb: [['strum', 'Strumming'], ['licks', 'Licks'], ['ueben', 'Akkorde & Tonleitern'], ['lieder', 'Lieder']],
   erk: [['idee', 'Idee → Tabs'], ['hoeren', 'Hören'], ['stimmen', 'Stimmen'], ['song', 'Song zerlegen'], ['radio', 'Radio & YouTube']], mem: [['gespeichert', 'Gespeichert']] };
 const groupOf = p => Object.keys(GROUPS).find(g => GROUPS[g].some(([id]) => id === p));
 document.querySelectorAll('.nv').forEach(b => b.onclick = () => showPanel(store.get('last.' + b.dataset.g, GROUPS[b.dataset.g][0][0])));
@@ -1333,6 +1394,7 @@ function loop() {
   if (speed.on && (panel === 'ueben' || panel === 'licks')) speedTick(level);
   if (st.on && st.mode === 'test' && panel === 'strum') strumTick(hf);
   if (sw.rec) swCapture();
+  if (ly.rec) lyCapture();
   if (wx.on) wechselTick();
   if (jam.on && panel === 'jam') jamTick();
   if (ear.on && panel === 'song') earTick(level);
@@ -2371,20 +2433,20 @@ $('swArrCh').onchange = swArrDg;
 const SW_DRUMS = [['R&B Slow Jam', { k: [0, 7, 10], s: [4, 12], h: [0, 2, 4, 6, 8, 10, 12, 14] }], ['Neo-Soul (locker)', { k: [0, 6, 9], s: [4, 12], h: [0, 2, 3, 4, 6, 8, 10, 11, 12, 14] }],
   ['R&B Bounce', { k: [0, 3, 8, 10], s: [4, 12], h: [...Array(16).keys()] }], ['Pop', { k: [0, 8], s: [4, 12], h: [0, 2, 4, 6, 8, 10, 12, 14] }], ['Ohne Schlagzeug', null]];
 $('swArrDr').innerHTML = SW_DRUMS.map(([t], i) => `<option value="${i}">${t}</option>`).join('');
-function swSchedule(T, extra) { // extra(t, bar, k, chord) adds a part per bar
-  const a = audio(), r = sw.res, row = sw.rows[$('swArrCh').value], pat = G.STRUMS[$('swArrPat').value], dk = SW_DRUMS[$('swArrDr').value][1];
+function swSchedule(T, extra, o = {}) { // extra(t, bar, k, chord) adds a part per bar; o overrides the songwriter's choices (raw, res, row, pat, dk, keys)
+  const a = audio(), r = o.res || sw.res, row = o.row || sw.rows[$('swArrCh').value], pat = o.pat || G.STRUMS[$('swArrPat').value], dk = 'dk' in o ? o.dk : SW_DRUMS[$('swArrDr').value][1], keysOn = o.keys ?? $('swKeys').checked;
   const bar = 60 / r.bpm * r.top.beats, steps = r.top.beats === 4 ? 16 : 12, gr = r.top.beats === 4 ? dk : dk && { k: [0], s: [6], h: [0, 2, 4, 6, 8, 10] };
-  const { x, sr } = sw.raw, b = a.createBuffer(1, x.length, sr); b.copyToChannel(x, 0);
+  const { x, sr } = o.raw || sw.raw, b = a.createBuffer(1, x.length, sr); b.copyToChannel(x, 0);
   let peak = 0; for (let i = 0; i < x.length; i++) peak = Math.max(peak, Math.abs(x[i]));
   const src = a.createBufferSource(), g = a.createGain(); src.buffer = b; g.gain.value = 0.9 / (peak || 1); src.connect(g); g.connect(bus(a).dry); src.start(T); playing.push(src);
   const dur = x.length / sr;
   for (let k = 0; r.t0 + k * bar < dur; k++) {
     const t = T + r.t0 + k * bar, ch = row.chords[k % row.chords.length], c = G.parseChord(ch);
     if (extra) extra(t, bar, k, ch);
-    let u = t; for (let i = 0; i < pat.g; i++) { if (pat.p[i] !== '-') strumSlot(pat.p[i], ch, u + hum(), (extra ? 0.16 : 0.26) * ($('swKeys').checked ? 0.75 : 1)); u += slotDur(pat, bar / pat.beats, i); }
+    let u = t; for (let i = 0; i < pat.g; i++) { if (pat.p[i] !== '-') strumSlot(pat.p[i], ch, u + hum(), (extra ? 0.16 : 0.26) * (keysOn ? 0.75 : 1)); u += slotDur(pat, bar / pat.beats, i); }
     if (gr) ['k', 's', 'h'].forEach(d => gr[d].forEach(st => drum(d, t + st * bar / steps + hum(d === 'h' ? 0.008 : 0.003), d === 'h' ? (st % 4 ? 0.55 : 1) * (0.8 + Math.random() * 0.2) : 1)));
     if (c) [0, steps / 2].forEach(st => bass(28 + ((c.pc - 4 + 12) % 12), t + st * bar / steps, bar / 2 - 0.02)); // bass: root on 1 and in the middle of the bar
-    if ($('swKeys').checked) keys(ch, t, bar - 0.05);
+    if (keysOn) keys(ch, t, bar - 0.05);
   }
   return T + dur + 1;
 }
@@ -2467,6 +2529,114 @@ $('swOut').addEventListener('click', e => {
   }
 });
 
+// ---------- lyrics & chords: sing, keep the words, see which chord goes on which word
+const ly = { rec: false, chunks: [], t: 0, len: 0, res: null, heard: [], speech: null, raf: 0 };
+function lyCapture() {
+  const sr = ctx.sampleRate, now = ctx.currentTime; let n = Math.min(buf.length, Math.round((now - ly.t) * sr)); if (n <= 0) return;
+  ly.chunks.push(buf.slice(buf.length - n)); ly.t = now; ly.len += n;
+  $('lyLive').textContent = `Aufnahme … ${Math.round(ly.len / sr)} s` + (ly.heard.length ? ' · Text: „' + ly.heard.at(-1) + '“' : '');
+  if (ly.len > sr * 180) $('lyRec').click();
+}
+const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+function lySpeechStart() { // browser speech-to-text; optional, many browsers don't have it or can't share the mic
+  if (!SpeechRec || !$('lyAuto').checked) return;
+  try {
+    const r = new SpeechRec(); r.lang = 'de-DE'; r.continuous = true; r.interimResults = false;
+    r.onresult = e => { for (let i = e.resultIndex; i < e.results.length; i++) if (e.results[i].isFinal) ly.heard.push(e.results[i][0].transcript.trim()); };
+    r.onerror = e => { ly.speechErr = e.error; };
+    r.onend = () => { if (ly.rec && !ly.speechErr) try { r.start(); } catch (err) {} };
+    r.start(); ly.speech = r;
+  } catch (e) { ly.speechErr = e.message; }
+}
+$('lyRec').onclick = () => {
+  if (!running) { say('Bitte zuerst oben „🎤 Mikrofon starten“ tippen.', true); return; }
+  if (!ly.rec) { Object.assign(ly, { rec: true, chunks: [], t: ctx.currentTime, len: 0, heard: [], speechErr: null }); lySpeechStart(); $('lyRec').textContent = '■ Fertig'; return; }
+  ly.rec = false; $('lyRec').textContent = '● Singen und aufnehmen'; if (ly.speech) try { ly.speech.stop(); } catch (e) {}
+  const x = new Float32Array(ly.len); let o = 0; ly.chunks.forEach(c => { x.set(c, o); o += c.length; }); ly.chunks = [];
+  $('lyLive').textContent = 'Werte aus …';
+  setTimeout(() => { // the last words arrive shortly after stopping
+    if (ly.heard.length) $('lyText').value = ly.heard.join('\n');
+    else if ($('lyAuto').checked && !$('lyText').value.trim()) say(SpeechRec ? 'Den Text konnte ich nicht mitschreiben. Tipp ihn ins Feld ein und tipp auf „↻ Text neu zuordnen“.' : 'Dieser Browser kann keinen Text mitschreiben. Tipp ihn ins Feld ein und tipp auf „↻ Text neu zuordnen“.', true);
+    lyAnalyze(x, ctx.sampleRate);
+  }, 900);
+};
+$('lyFile').onchange = async e => {
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  try { const ab = await audio().decodeAudioData(await f.arrayBuffer()); let x = ab.getChannelData(0); if (ab.numberOfChannels > 1) { const r = ab.getChannelData(1); x = x.map((v, i) => (v + r[i]) / 2); } lyAnalyze(x, ab.sampleRate); }
+  catch (err) { say('Die Datei ließ sich nicht lesen. Probier MP3, M4A oder WAV.', true); }
+};
+function lyAnalyze(x, sr) {
+  while (sr > 24000) { x = Core.decimate2(x); sr /= 2; }
+  if (x.length / sr < 3) { $('lyLive').textContent = ''; say('Zu kurz: Sing mindestens ein paar Sekunden.', true); return; }
+  const frames = []; for (let i = 0; i + 2048 <= x.length; i += 512) { const p = Core.detectPitch(x.subarray(i, i + 2048), sr); frames.push({ t: i / sr, midi: p && p.clarity > 0.6 ? Core.midiOf(p.freq) : null, rms: Core.rmsOf(x.subarray(i + 768, i + 1280)) }); }
+  const notes = Core.toNotes(frames);
+  if (notes.length < 3) { $('lyLive').textContent = ''; say('Ich habe kaum Töne gehört. Sing etwas lauter und näher am Handy.', true); return; }
+  const bpm = StemCore.tempo(x, sr), rank = G.strumRank(StemCore.onsetTimes(x, sr), 60 / bpm), top = rank[0] || { ...G.STRUMS[0], bpm };
+  const pat = rank.find(r => r.t.startsWith('R&B') && r.sig === top.sig) || top;
+  ly.res = { x, sr, notes, bpm: top.bpm, top, pat: G.STRUMS.find(q => q.p === pat.p), key: Core.detectKey(notes) };
+  $('lyLive').textContent = `${Math.round(x.length / sr)} s aufgenommen, ${notes.length} Töne erkannt.`; lyRender(); win(10, '🎤 Lyrics mit Akkorden');
+}
+function lyRender() {
+  const r = ly.res; if (!r) return;
+  const bar = 60 / r.bpm * r.top.beats, { tonic: k, minor } = r.key, st = $('lyStyle').value;
+  const chords = st === 'rnb' ? G.rnb(Core.harmonize(r.notes, bar).chords, k, minor) : Core.harmonize(r.notes, bar, st).chords;
+  const sheet = G.chordSheet(r.notes, $('lyText').value.split('\n'), chords, bar);
+  Object.assign(r, { chords, sheet, bar });
+  $('lyFacts').textContent = `${r.key.name} · ${r.bpm} BPM · ${r.top.sig}`;
+  $('lyTable').innerHTML = sheet.map((row, i) => `<tr id="lyr${i}"><td>${fmtT(row.start)}</td><td>` +
+    (row.words.length ? row.words.map((w, j) => `<span class="lw" id="lw${i}_${j}"><b>${w.chord || ''}</b>${w.w.replace(/[<>&]/g, '')}</span>`).join('') : `<span class="sub">(Satz ${i + 1}, ohne Text)</span> <b>${row.changes.map(c => c.chord).join(' → ')}</b>`) +
+    `</td><td>${row.changes.map((c, n) => `<b>${c.chord}</b> ${n ? 'bei ' + fmtT(c.t) + (c.word ? ` auf „${c.word.replace(/[<>&]/g, '')}“` : '') : 'zum Start'}`).join('<br>')}</td></tr>`).join('');
+  $('lyDg').innerHTML = [...new Set(chords)].slice(0, 10).map(c => diagram(c)).join('');
+  const sc = SW_SCALES[minor ? 'min' : 'maj'];
+  $('lyScales').innerHTML = sc.map(([i, n, why]) => `<div class="swrow"><span><b>🎼 ${Core.name(k)} ${n}</b><br><span class="sub">${why} Töne: ${G.SCALES[i][1].map(x => Core.name(k + x)).join(' ')}</span></span><span><button class="btn ghost small" data-sc="${i}">Auf dem Griffbrett</button> <button class="btn ghost small" data-scu="${i}">🎸 Üben</button></span></div>`).join('');
+  $('lyBoard').innerHTML = fretboard(G.SCALES[sc[0][0]][1].map(x => (k + x) % 12), k, null);
+  $('lyNow').textContent = chords[0]; $('lyNext').textContent = chords[1] || chords[0];
+  $('lyOut').hidden = false;
+}
+$('lyStyle').onchange = lyRender; $('lyApply').onclick = lyRender;
+$('lyScales').onclick = e => { const b = e.target.closest('button'); if (!b || !ly.res) return; const k = ly.res.key.tonic;
+  if (b.dataset.sc) $('lyBoard').innerHTML = fretboard(G.SCALES[b.dataset.sc][1].map(x => (k + x) % 12), k, null);
+  if (b.dataset.scu) { $('scRoot').value = k; $('scType').value = 's' + b.dataset.scu; $('learnMode').value = 'scale'; $('learnMode').onchange({ target: $('learnMode') }); showPanel('ueben'); } };
+$('lyPlay').onclick = () => {
+  const r = ly.res; if (!r) return; stopAll(); cancelAnimationFrame(ly.raf);
+  const T = audio().currentTime + 0.2, t0 = r.notes[0].start;
+  swSchedule(T, null, { raw: { x: r.x, sr: r.sr }, res: { bpm: r.bpm, top: r.top, t0 }, row: { chords: r.chords }, pat: r.pat || G.STRUMS[0], dk: SW_DRUMS[$('lyStyle').value === 'rnb' ? 0 : 3][1], keys: true });
+  let last = '';
+  const ui = () => { const now = ctx.currentTime - T; if (now > r.x.length / r.sr + 0.5) return;
+    const k = Math.max(0, Math.floor((now - t0) / r.bar)), key = k + '|' + r.sheet.findIndex(q => now >= q.start - 0.3 && now <= q.end + 0.3);
+    if (key !== last) { last = key; $('lyNow').textContent = r.chords[k % r.chords.length]; $('lyNext').textContent = r.chords[(k + 1) % r.chords.length];
+      const ri = +key.split('|')[1]; document.querySelectorAll('#lyTable tr').forEach((tr, i) => tr.classList.toggle('now', i === ri)); }
+    ly.raf = requestAnimationFrame(ui); };
+  ly.raf = requestAnimationFrame(ui);
+};
+$('lyStop').onclick = () => { stopAll(); cancelAnimationFrame(ly.raf); document.querySelectorAll('#lyTable tr.now').forEach(tr => tr.classList.remove('now')); };
+$('lyStrum').onclick = () => { const r = ly.res; if (!r) return; const v = [...new Set(r.chords)].slice(0, 4).join(' ');
+  if (![...$('stProg').options].some(o => o.value === v)) $('stProg').insertAdjacentHTML('afterbegin', `<option>${v}</option>`);
+  $('stProg').value = v; if (r.pat) $('stSel').value = G.STRUMS.indexOf(r.pat); $('stBpm').value = Math.max(40, Math.min(160, r.bpm)); $('stBpmVal').textContent = $('stBpm').value; strumShow(); stChords(v.split(' ')); showPanel('strum'); };
+// saved sheets: text + notes in localStorage (small), the recording in IndexedDB next to the songwriter takes
+$('lySave').onclick = async () => {
+  const r = ly.res; if (!r) return; const id = r.id || Date.now(), lines = $('lyText').value, name = (lines.split('\n').find(l => l.trim()) || 'Lyrics vom ' + new Date().toLocaleDateString('de-DE')).slice(0, 40);
+  const list = store.get('lyr', []).filter(q => q.id !== id);
+  list.unshift({ id, name, lines, style: $('lyStyle').value, bpm: r.bpm, sig: r.top.sig, pat: r.pat && r.pat.p, key: r.key, notes: r.notes.map(n => ({ midi: Math.round(n.midi * 10) / 10, start: +n.start.toFixed(3), dur: +n.dur.toFixed(3) })) });
+  store.set('lyr', list.slice(0, 50)); r.id = id;
+  try { await swStore({ id, name: '🎤 ' + name, sr: r.sr, x: r.x }); swListShow(); } catch (e) { say('Text gespeichert, die Aufnahme passte nicht in den Browser-Speicher.', true); }
+  lyList(); say('💾 Gespeichert: „' + name + '“');
+};
+function lyList() {
+  const list = store.get('lyr', []);
+  $('lyList').innerHTML = list.length ? list.map(q => `<div class="swrow"><span><b>${q.name.replace(/[<>&]/g, '')}</b> · ${q.key ? q.key.name : ''}</span><span><button class="btn ghost small" data-lo="${q.id}">Öffnen</button> <button class="btn ghost small" data-ld="${q.id}">Löschen</button></span></div>`).join('') : 'Noch nichts gespeichert.';
+}
+$('lyList').onclick = async e => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.ld) { if (!confirm('Diese Lyrics wirklich löschen?')) return; store.set('lyr', store.get('lyr', []).filter(q => q.id !== +b.dataset.ld)); try { await swTx('readwrite', s => s.delete(+b.dataset.ld)); swListShow(); } catch (err) {} lyList(); return; }
+  const q = store.get('lyr', []).find(x => x.id === +b.dataset.lo); if (!q) return;
+  let rec = null; try { rec = await swTx('readonly', s => s.get(q.id)); } catch (err) {}
+  const top = { ...(G.STRUMS.find(x => x.p === q.pat) || G.STRUMS[0]), bpm: q.bpm }; top.beats = q.sig === '3/4' ? 3 : q.sig === '6/8' ? 2 : 4; top.sig = q.sig;
+  ly.res = { id: q.id, x: rec ? rec.x : new Float32Array(1), sr: rec ? rec.sr : 22050, notes: q.notes, bpm: q.bpm, top, pat: G.STRUMS.find(x => x.p === q.pat), key: q.key };
+  $('lyText').value = q.lines; $('lyStyle').value = q.style; lyRender(); if (!rec) say('Die Aufnahme dazu ist nicht mehr da, Text und Akkorde schon.', true);
+};
+lyList();
+
 // ---------- beginner help: every view explains itself in steps, plus the words you need
 const TERMS = {
   mikro: ['Mikrofon', 'Ganz oben „🎤 Mikrofon starten“ tippen und erlauben. Leg das Handy 30 bis 50 cm vor die Gitarre. Kopfhörer helfen, wenn die App gleichzeitig Musik spielt.'],
@@ -2486,6 +2656,7 @@ const TERMS = {
 };
 const HELP = {
   sw: [['Oben „🎤 Mikrofon starten“ tippen.', '„● Lied aufnehmen“ tippen, 20 bis 60 Sekunden singen oder spielen, dann „■ Fertig“.', 'Die App zeigt Tonart, Tempo, passende Strumming-Muster und Akkorde mit Griffbildern.', '„▶ Mit Band anhören“: dein Lied mit Schlagzeug, Bass und Gitarre. „💾 Speichern“ lädt es herunter.', 'Unten bei „Riffs, Licks & Tonleitern“ hörst du mit „▶ Im Song“, was du zusätzlich spielen kannst.'], ['mikro', 'tonart', 'bpm', 'akkord', 'strumming']],
+  lyr: [['Tipp oben auf „🎤 Mikrofon starten“.', 'Tipp deinen Text ein (eine Zeile pro Satz) oder lass ihn beim Singen mitschreiben.', '„● Singen und aufnehmen“, sing dein Lied mit kleinen Pausen zwischen den Sätzen, dann „■ Fertig“.', 'Die Tabelle zeigt jeden Satz mit den Akkorden über den Wörtern: Dort wechselst du den Akkord.', '„▶ Mit Band anhören“: Die aktuelle Zeile und der Akkord leuchten mit. Akkord-Stil oben umschalten, z. B. R&B.'], ['akkord', 'griffbild', 'tonart', 'tonleiter', 'bpm']],
   jam: [['Tonart und Stil wählen, „▶ Band starten“.', 'Oben siehst du, welcher Akkord gerade läuft, darunter die Griffbilder.', 'Spiel Töne der Tonleiter vom Griffbrett. Grüne Punkte klingen zum aktuellen Akkord am besten.', 'Mit Mikrofon sagt dir die App bei jedem Ton, ob er passt.'], ['tonleiter', 'bund', 'saiten', 'mikro']],
   strum: [['Muster wählen. Neu? Nimm „Anfänger: ein Schlag pro Takt“.', 'Akkorde wählen. Die Griffbilder zeigen, wie die linke Hand greift. Übe zuerst nur das Greifen.', '„▶ Vorspielen“: zuhören und die Hand ansehen. Oben steht, welchen Akkord du jetzt greifst und welcher danach kommt.', '„🎸 Nachspielen“: Mikrofon an, die App zählt einen Takt ein, dann spielst du 4 Takte mit.', 'Klappt es fast fehlerfrei, wird das Tempo schneller.'], ['strumming', 'takt', 'griffbild', 'akkord', 'bpm']],
   licks: [['Stil und Lick wählen (oder 🎲 Zufall).', '„▶ Ruf“: die App spielt das Lick und zeigt jeden Ton: Saite, Bund, Finger.', 'Danach spielst du es nach. Die App wartet bei jedem Ton, bis er stimmt.', 'Zu schwer? Tempo-Regler nach links. Später „⚡ Im Takt“ für Tempo-Training.'], ['tab', 'tech', 'finger', 'lick', 'saiten']],
