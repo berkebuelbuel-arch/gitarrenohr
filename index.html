@@ -218,6 +218,7 @@ header{display:flex;justify-content:space-between;align-items:center;gap:10px}
 
   <!-- Idee: melody -> notes, tabs, chords -->
   <section class="panel" id="p-idee" hidden>
+    <div class="welcome"><b>🎤 Du singst eine Idee mit Text?</b> Dann nimm „Lyrics & Akkorde“: Die App schreibt deinen Text auf und sagt dir bei jedem Wort, wann du welchen Akkord spielst.<div class="row"><button class="btn small" id="toLyr">Zu Lyrics & Akkorde</button></div></div>
     <div class="row">
       <button class="btn rec" id="recBtn">● Idee aufnehmen</button>
       <span class="sub" id="recLive">Summen, singen oder auf der Gitarre vorspielen</span>
@@ -452,6 +453,7 @@ header{display:flex;justify-content:space-between;align-items:center;gap:10px}
       <p class="sub">Eine Zeile pro gesungenem Satz. Du kannst den Text vorher eintippen oder beim Singen mitschreiben lassen und danach korrigieren.</p>
       <textarea id="lyText" rows="5" placeholder="Hallo, wie geht's dir?&#10;Wie war heute dein Tag?"></textarea>
       <label><input type="checkbox" id="lyAuto" checked> Text beim Singen automatisch mitschreiben</label>
+      <div class="row"><button class="btn ghost small" id="lyDict">🗣 Text einsprechen</button><span class="sub" id="lyDictInfo">Klappt besser als Mitschreiben beim Singen: Sprich deinen Text normal, mach nach jedem Satz eine kurze Pause.</span></div>
     </div>
     <div class="card">
       <h2>2. Singen</h2>
@@ -463,7 +465,7 @@ header{display:flex;justify-content:space-between;align-items:center;gap:10px}
         <div class="prow"><h2>3. Text mit Akkorden</h2><span class="pill" id="lyFacts"></span></div>
         <div class="row"><label>Akkord-Stil <select id="lyStyle"><option value="rnb">R&B (maj7, m7, m9, 9)</option><option value="">Klassisch</option><option value="einfach">Ganz einfach (3 Akkorde)</option><option value="traurig">Traurig / gefühlvoll</option><option value="spannend">Spannend</option></select></label><button class="btn ghost small" id="lyApply">↻ Text neu zuordnen</button></div>
         <div class="nowbar"><div><span class="sub">Jetzt</span><b id="lyNow">–</b></div><div><span class="sub">Gleich danach</span><b id="lyNext">–</b></div></div>
-        <div class="tablewrap"><table class="lyt"><thead><tr><th>Zeit</th><th>Text mit Akkorden</th><th>Wann wechseln</th></tr></thead><tbody id="lyTable"></tbody></table></div>
+        <div class="tablewrap"><table class="lyt"><thead><tr><th>Zeit</th><th>Text mit Akkorden</th><th>Welcher Akkord wann</th></tr></thead><tbody id="lyTable"></tbody></table></div>
         <p class="note">Der Akkord steht über dem Wort, bei dem du wechselst: Schlag ihn genau auf dieses Wort an und lass ihn klingen, bis der nächste kommt.</p>
         <div class="row"><button class="btn" id="lyPlay">▶ Mit Band anhören</button><button class="btn ghost" id="lyStop">■ Stopp</button><button class="btn ghost" id="lySave">💾 Speichern</button><button class="btn ghost" id="lyStrum">🎸 Im Strumming üben</button></div>
         <div class="sub">Diese Akkorde brauchst du:</div><div class="diagrams" id="lyDg"></div>
@@ -550,7 +552,7 @@ header{display:flex;justify-content:space-between;align-items:center;gap:10px}
 
   <!-- Lieder -->
   <section class="panel" id="p-lieder" hidden>
-    <p class="note">Traditionelle Lieder und typische Akkordfolgen zum Mitspielen. Tipp auf „Mitspielen“, dann läuft die Folge im Takt mit Metronom und Begleitung.</p>
+    <p class="note">R&B-Akkordfolgen, traditionelle Lieder und typische Folgen zum Mitspielen. Tipp auf „Mitspielen“, dann läuft die Folge im Takt mit Metronom und Begleitung.</p>
     <div class="grid" id="songGrid"></div>
   </section>
 
@@ -838,7 +840,7 @@ const GuitarCore = (() => {
     C: 'x32010', D: 'xx0232', E: '022100', G: '320003', A: 'x02220', Am: 'x02210', Dm: 'xx0231', Em: '022000',
     A7: 'x02020', H7: 'x21202', C7: 'x32310', D7: 'xx0212', E7: '020100', G7: '320001', Am7: 'x02010', Em7: '022030',
     Dm7: 'xx0211', Cmaj7: 'x32000', Fmaj7: 'xx3210', Dsus2: 'xx0230', Dsus4: 'xx0233', Asus2: 'x02200', Asus4: 'x02230',
-    Esus4: '022200', F: '133211', Fm: '133111' }).map(([k, v]) => [k, fromStr(v)]));
+    Esus4: '022200', F: '133211', Fm: '133111', Am9: 'x02413', Em9: '022032', G9: '3x0201', E9: '020102' }).map(([k, v]) => [k, fromStr(v)]));
   // movable barre shapes, frets relative to the root fret on the E (6th) or A (5th) string
   const E_SHAPE = { '': [0,2,2,1,0,0], m: [0,2,2,0,0,0], 7: [0,2,0,1,0,0], m7: [0,2,0,0,0,0], sus4: [0,2,2,2,0,0], maj7: [0,null,1,1,0,null] };
   const A_SHAPE = { '': [null,0,2,2,2,0], m: [null,0,2,2,1,0], 7: [null,0,2,0,2,0], m7: [null,0,2,0,1,0], maj7: [null,0,2,1,2,0], sus2: [null,0,2,2,0,0], sus4: [null,0,2,2,3,0], dim: [null,0,1,2,1,null], m9: [null,0,-2,0,0,0], 9: [null,0,-1,0,0,0], maj9: [null,0,-1,1,0,0] };
@@ -1138,7 +1140,7 @@ const GuitarCore = (() => {
       changes.forEach((ch, n) => {
         if (!words.length) return; let j = 0; wt.forEach((t, k) => { if (Math.abs(t - ch.t) < Math.abs(wt[j] - ch.t)) j = k; });
         while (j < words.length - 1 && words[j].chord && n) j++; // two changes on one word: push the later one on
-        words[j].chord = ch.chord; ch.word = words[j].w;
+        words[j].chord = ch.chord; ch.word = words[j].w; ch.wi = j;
       });
       return { start: p.start, end: p.end, words, changes };
     });
@@ -1765,19 +1767,33 @@ let noteTarget = null, noteScore = 0;
 function newNoteTask() { const pool = ['C', 'D', 'E', 'F', 'G', 'A', 'H']; let t; do t = pool[Math.floor(Math.random() * 7)]; while (t === noteTarget); noteTarget = t; hold = 0; $('noteTarget').textContent = t; $('noteTarget').classList.remove('ok-flash'); }
 $('noteNext').onclick = newNoteTask;
 
+// the detector knows triads and 7ths; a 9th chord counts when its 7th or triad is heard, a maj7 when its major triad is
+const FAMILY = { m9: ['m9', 'm7', 'm'], m7: ['m7', 'm'], 9: ['9', '7', ''], 7: ['7', ''], maj9: ['maj9', 'maj7', ''], maj7: ['maj7', ''] };
+function chordOk(heard, want) {
+  if (!heard) return false; if (heard === want) return true;
+  const h = G.parseChord(heard), w = G.parseChord(want); return !!(h && w && h.pc === w.pc && (FAMILY[w.suf] || [w.suf]).includes(h.suf));
+}
 function practiceTick() {
   if (learnMode === 'pfad' && target) {
     $('heard').textContent = 'Ich höre: ' + (lastChord || '–');
-    hold = lastChord === target ? hold + 1 : Math.min(hold, 0); if (hold > 20) pfadHit();
+    hold = chordOk(lastChord, target) ? hold + 1 : Math.min(hold, 0); if (hold > 20) pfadHit();
   } else if (learnMode === 'note') {
     $('noteHeard').textContent = 'Ich höre: ' + (lastPitch ? noteLabel(lastPitch.midi) : '–');
     hold = lastPitch && lastPitch.name === noteTarget ? hold + 1 : Math.min(hold, 0);
     if (hold > 12) { noteScore++; win(3, '✓ ' + noteTarget + ' gefunden!'); $('noteScore').textContent = noteScore + ' richtig'; $('noteTarget').classList.add('ok-flash'); hold = -999; setTimeout(newNoteTask, 900); }
-  } else if (learnMode === 'mit' && mit.on && mit.cur >= 0 && lastChord === mit.prog[mit.cur][0]) mit.heard[mit.change] = (mit.heard[mit.change] || 0) + 1;
+  } else if (learnMode === 'mit' && mit.on && mit.cur >= 0 && chordOk(lastChord, mit.prog[mit.cur][0])) mit.heard[mit.change] = (mit.heard[mit.change] || 0) + 1;
 }
 
 // ---------- songs (traditional songs and common progressions; chords only)
 const SONGS = [
+  { t: 'Neo-Soul: ii – V – I', key: 'C-Dur', meter: 4, bpm: 76, rnb: true, prog: [['Dm9', 4], ['G9', 4], ['Cmaj7', 8]], why: 'Die wichtigste Folge in Soul und Jazz: Dm9 öffnet, G9 baut Spannung auf, Cmaj7 löst sie weich auf.' },
+  { t: 'R&B-Klassiker mit Septimen', key: 'C-Dur', meter: 4, bpm: 80, rnb: true, prog: [['Cmaj7', 4], ['Am7', 4], ['Dm7', 4], ['G7', 4]], why: 'Die bekannte Pop-Folge C – Am – Dm – G, nur mit Septimen: Dadurch klingt sie weicher und „teurer“.' },
+  { t: 'Slow Jam in Moll', key: 'A-Moll', meter: 4, bpm: 68, rnb: true, prog: [['Am9', 4], ['Dm9', 4]], why: 'Nur zwei Akkorde, beide mit None: Das gibt das schwebende Slow-Jam-Gefühl. Perfekt zum Drübersingen.' },
+  { t: 'Neo-Soul-Vamp', key: 'C-Dur', meter: 4, bpm: 84, rnb: true, prog: [['Fmaj7', 4], ['Em7', 4]], why: 'Hin und her zwischen zwei weichen Akkorden, die nie ganz „ankommen“. So bleiben viele Neo-Soul-Songs in der Schwebe.' },
+  { t: 'Smooth R&B', key: 'G-Dur', meter: 4, bpm: 88, rnb: true, prog: [['Gmaj7', 4], ['Cmaj7', 4]], why: 'Zwei Maj7-Akkorde: entspannt und sommerlich. Die große Septime macht den Smooth-Klang.' },
+  { t: 'Gospel-Aufstieg', key: 'C-Dur', meter: 4, bpm: 78, rnb: true, prog: [['Fmaj7', 4], ['G9', 4], ['Am7', 4], ['E7', 4]], why: 'F – G – Am steigt auf, E7 zieht stark zurück zum Am. Dieser „Zwischendominant“ ist typisch für Gospel und R&B.' },
+  { t: 'R&B-Ballade in Moll', key: 'A-Moll', meter: 4, bpm: 72, rnb: true, prog: [['Am7', 4], ['Fmaj7', 4], ['Dm7', 4], ['E7', 4]], why: 'Moll mit E7 am Ende: Das E7 enthält ein G#, das nach A will. Dramatisch wie eine große R&B-Ballade.' },
+  { t: '90er-Soul: Quintfall', key: 'C-Dur', meter: 4, bpm: 80, rnb: true, prog: [['Em7', 4], ['Am7', 4], ['Dm7', 4], ['G7', 4], ['Cmaj7', 8]], why: 'Jeder Akkord liegt eine Quinte über dem nächsten und zieht zu ihm hin, bis alles auf Cmaj7 landet. Klingt nach 90er-R&B.' },
   { t: 'Erste Wechsel: Em ↔ Am', key: 'E-Moll', meter: 4, bpm: 70, prog: [['Em', 4], ['Am', 4]] },
   { t: 'Erste Wechsel: D ↔ A', key: 'D-Dur', meter: 4, bpm: 70, prog: [['D', 4], ['A', 4]] },
   { t: 'Lagerfeuer: G – C – D', key: 'G-Dur', meter: 4, bpm: 80, prog: [['G', 4], ['C', 4], ['D', 4], ['G', 4]] },
@@ -1791,7 +1807,7 @@ const SONGS = [
   { t: 'Amazing Grace (traditionell)', key: 'G-Dur', meter: 3, bpm: 80, prog: [['G', 6], ['C', 3], ['G', 9], ['D', 6], ['G', 6], ['C', 3], ['G', 6], ['D', 3], ['G', 6]] },
   { t: 'House of the Rising Sun (traditionell)', key: 'A-Moll', meter: 6, bpm: 160, prog: [['Am', 6], ['C', 6], ['D', 6], ['F', 6], ['Am', 6], ['C', 6], ['E', 12], ['Am', 6], ['C', 6], ['D', 6], ['F', 6], ['Am', 6], ['E', 6], ['Am', 6], ['E', 6]] }];
 $('songSel').innerHTML = SONGS.map((s, i) => `<option value="${i}">${s.t}</option>`).join('');
-$('songGrid').innerHTML = SONGS.map((s, i) => `<div class="card song"><div class="t">${s.t}</div><div class="sub">${s.key} · ${s.meter === 6 ? '6/8' : s.meter + '/4'}</div><div class="sub">${s.prog.map(p => p[0]).join(' – ')}</div><div class="diagrams mini">${[...new Set(s.prog.map(p => p[0]))].map(c => diagram(c)).join('')}</div><div class="row"><button class="btn small" data-play="${i}">Mitspielen</button><button class="btn ghost small" data-hear="${i}">▶ Anhören</button></div></div>`).join('');
+$('songGrid').innerHTML = SONGS.map((s, i) => `<div class="card song"><div class="t">${s.rnb ? '🎤 R&B · ' : ''}${s.t}</div>${s.why ? `<div class="note">${s.why}</div>` : ''}<div class="sub">${s.key} · ${s.meter === 6 ? '6/8' : s.meter + '/4'}</div><div class="sub">${s.prog.map(p => p[0]).join(' – ')}</div><div class="diagrams mini">${[...new Set(s.prog.map(p => p[0]))].map(c => diagram(c)).join('')}</div><div class="row"><button class="btn small" data-play="${i}">Mitspielen</button><button class="btn ghost small" data-hear="${i}">▶ Anhören</button></div></div>`).join('');
 $('songGrid').querySelectorAll('[data-play]').forEach(b => b.onclick = () => { $('songSel').value = b.dataset.play; $('learnMode').value = 'mit'; $('learnMode').onchange({ target: $('learnMode') }); selectSong(); showPanel('ueben'); });
 $('songGrid').querySelectorAll('[data-hear]').forEach(b => b.onclick = () => { stopAll(); const s = SONGS[b.dataset.hear], beat = 60 / s.bpm; let t = audio().currentTime + 0.1; s.prog.forEach(([c, n]) => { for (let k = 0; k < n; k += s.meter === 6 ? 3 : 2) strum(c, t + k * beat, 0.5); t += n * beat; }); });
 
@@ -2712,7 +2728,9 @@ function lyRender() {
   $('lyFacts').textContent = `${r.key.name} · ${r.bpm} BPM · ${r.top.sig}`;
   $('lyTable').innerHTML = sheet.map((row, i) => `<tr id="lyr${i}"><td>${fmtT(row.start)}</td><td>` +
     (row.words.length ? row.words.map((w, j) => `<span class="lw" id="lw${i}_${j}"><b>${w.chord || ''}</b>${w.w.replace(/[<>&]/g, '')}</span>`).join('') : `<span class="sub">(Satz ${i + 1}, ohne Text)</span> <b>${row.changes.map(c => c.chord).join(' → ')}</b>`) +
-    `</td><td>${row.changes.map((c, n) => `<b>${c.chord}</b> ${n ? 'bei ' + fmtT(c.t) + (c.word ? ` auf „${c.word.replace(/[<>&]/g, '')}“` : '') : 'zum Start'}`).join('<br>')}</td></tr>`).join('');
+    `</td><td>${row.changes.map((c, n) => { const nx = row.changes[n + 1], to = nx ? nx.t : row.end, w = row.words.slice(c.wi ?? 0, nx && nx.wi != null ? nx.wi : undefined).map(x => x.w);
+      const esc = x => x.replace(/[<>&]/g, ''), span = w.length ? ` · ${n ? 'ab' : 'von'} „${esc(w[0])}“${w.length > 1 ? ` bis „${esc(w.at(-1))}“` : ''}` : '';
+      return `<b>${c.chord}</b> ${fmtT(c.t)}–${fmtT(to)}${span}`; }).join('<br>')}</td></tr>`).join('');
   $('lyDg').innerHTML = [...new Set(chords)].slice(0, 10).map(c => diagram(c)).join('');
   const sc = SW_SCALES[minor ? 'min' : 'maj'];
   $('lyScales').innerHTML = sc.map(([i, n, why]) => `<div class="swrow"><span><b>🎼 ${Core.name(k)} ${n}</b><br><span class="sub">${why} Töne: ${G.SCALES[i][1].map(x => Core.name(k + x)).join(' ')}</span></span><span><button class="btn ghost small" data-sc="${i}">Auf dem Griffbrett</button> <button class="btn ghost small" data-scu="${i}">🎸 Üben</button></span></div>`).join('');
@@ -2720,6 +2738,7 @@ function lyRender() {
   $('lyNow').textContent = chords[0]; $('lyNext').textContent = chords[1] || chords[0];
   $('lyOut').hidden = false;
 }
+$('toLyr').onclick = () => showPanel('lyr');
 $('lyStyle').onchange = lyRender; $('lyApply').onclick = lyRender;
 $('lyScales').onclick = e => { const b = e.target.closest('button'); if (!b || !ly.res) return; const k = ly.res.key.tonic;
   if (b.dataset.sc) $('lyBoard').innerHTML = fretboard(G.SCALES[b.dataset.sc][1].map(x => (k + x) % 12), k, null);
@@ -2740,6 +2759,20 @@ $('lyStop').onclick = () => { stopAll(); cancelAnimationFrame(ly.raf); document.
 $('lyStrum').onclick = () => { const r = ly.res; if (!r) return; const v = [...new Set(r.chords)].slice(0, 4).join(' ');
   if (![...$('stProg').options].some(o => o.value === v)) $('stProg').insertAdjacentHTML('afterbegin', `<option>${v}</option>`);
   $('stProg').value = v; if (r.pat) $('stSel').value = G.STRUMS.indexOf(r.pat); $('stBpm').value = Math.max(40, Math.min(160, r.bpm)); $('stBpmVal').textContent = $('stBpm').value; strumShow(); stChords(v.split(' ')); showPanel('strum'); };
+// dictation: speaking is understood far better than singing; every pause starts a new line
+$('lyDict').onclick = async () => {
+  if (!SpeechRec) { say('Dieser Browser kann keinen Text erkennen. Nimm Chrome (Android/Computer) oder Safari (iPhone), oder tipp den Text ein.', true); return; }
+  if (ly.dict) { ly.dict.stop(); return; }
+  const wasOn = running; if (running) $('micBtn').click(); // many phones give the microphone to only one listener at a time
+  const r = new SpeechRec(), lines = []; r.lang = 'de-DE'; r.continuous = true; r.interimResults = true; ly.dict = r;
+  r.onresult = e => { let interim = ''; for (let i = e.resultIndex; i < e.results.length; i++) { const tx = e.results[i][0].transcript.trim(); if (e.results[i].isFinal) { if (tx) lines.push(tx); } else interim = tx; }
+    $('lyText').value = lines.join('\n') + (interim ? '\n' + interim : ''); $('lyDictInfo').textContent = 'Ich höre zu … tipp auf „■ Fertig“, wenn du durch bist.'; };
+  r.onerror = e => say(e.error === 'not-allowed' ? 'Spracherkennung nicht erlaubt. Erlaube das Mikrofon für diese Seite.' : 'Spracherkennung: ' + e.error, true);
+  r.onend = () => { ly.dict = null; $('lyDict').textContent = '🗣 Text einsprechen'; $('lyText').value = lines.join('\n') || $('lyText').value;
+    $('lyDictInfo').textContent = lines.length ? `${lines.length} Zeilen übernommen. Prüf sie kurz.` : 'Nichts verstanden. Nochmal, etwas lauter und deutlicher.';
+    if (ly.res) lyRender(); if (wasOn) say('Text übernommen. Zum Weitersingen oben wieder „🎤 Mikrofon starten“ tippen.'); };
+  try { r.start(); $('lyDict').textContent = '■ Fertig'; $('lyDictInfo').textContent = 'Sprich jetzt deinen Text, Satz für Satz.'; } catch (e) { ly.dict = null; say('Spracherkennung startet nicht: ' + e.message, true); }
+};
 // saved sheets: text + notes in localStorage (small), the recording in IndexedDB next to the songwriter takes
 $('lySave').onclick = async () => {
   const r = ly.res; if (!r) return; const id = r.id || Date.now(), lines = $('lyText').value, name = (lines.split('\n').find(l => l.trim()) || 'Lyrics vom ' + new Date().toLocaleDateString('de-DE')).slice(0, 40);
@@ -2834,12 +2867,12 @@ const TERMS = {
 };
 const HELP = {
   sw: [['Oben „🎤 Mikrofon starten“ tippen.', '„● Lied aufnehmen“ tippen, 20 bis 60 Sekunden singen oder spielen, dann „■ Fertig“.', 'Die App zeigt Tonart, Tempo, passende Strumming-Muster und Akkorde mit Griffbildern.', '„▶ Mit Band anhören“: dein Lied mit Schlagzeug, Bass und Gitarre. „💾 Speichern“ lädt es herunter.', 'Unten bei „Riffs, Licks & Tonleitern“ hörst du mit „▶ Im Song“, was du zusätzlich spielen kannst.'], ['mikro', 'tonart', 'bpm', 'akkord', 'strumming']],
-  lyr: [['Tipp oben auf „🎤 Mikrofon starten“.', 'Tipp deinen Text ein (eine Zeile pro Satz) oder lass ihn beim Singen mitschreiben.', '„● Singen und aufnehmen“, sing dein Lied mit kleinen Pausen zwischen den Sätzen, dann „■ Fertig“.', 'Die Tabelle zeigt jeden Satz mit den Akkorden über den Wörtern: Dort wechselst du den Akkord.', '„▶ Mit Band anhören“: Die aktuelle Zeile und der Akkord leuchten mit. Akkord-Stil oben umschalten, z. B. R&B.'], ['akkord', 'griffbild', 'tonart', 'tonleiter', 'bpm']],
+  lyr: [['Tipp oben auf „🎤 Mikrofon starten“.', 'Tipp deinen Text ein (eine Zeile pro Satz), lass ihn beim Singen mitschreiben, oder sprich ihn danach mit „🗣 Text einsprechen“ ein (am zuverlässigsten).', '„● Singen und aufnehmen“, sing dein Lied mit kleinen Pausen zwischen den Sätzen, dann „■ Fertig“.', 'Die Tabelle zeigt jeden Satz mit den Akkorden über den Wörtern. Rechts steht genau: welcher Akkord von wann bis wann und ab welchem Wort.', '„▶ Mit Band anhören“: Die aktuelle Zeile und der Akkord leuchten mit. Akkord-Stil oben umschalten, z. B. R&B.'], ['akkord', 'griffbild', 'tonart', 'tonleiter', 'bpm']],
   jam: [['Tonart und Stil wählen, „▶ Band starten“.', 'Oben siehst du, welcher Akkord gerade läuft, darunter die Griffbilder.', 'Spiel Töne der Tonleiter vom Griffbrett. Grüne Punkte klingen zum aktuellen Akkord am besten.', 'Mit Mikrofon sagt dir die App bei jedem Ton, ob er passt.'], ['tonleiter', 'bund', 'saiten', 'mikro']],
   strum: [['Muster wählen. Neu? Nimm „Anfänger: ein Schlag pro Takt“.', 'Akkorde wählen. Die Griffbilder zeigen, wie die linke Hand greift. Übe zuerst nur das Greifen.', '„▶ Vorspielen“: zuhören und die Hand ansehen. Oben steht, welchen Akkord du jetzt greifst und welcher danach kommt.', '„🎸 Nachspielen“: Mikrofon an, die App zählt einen Takt ein, dann spielst du 4 Takte mit.', 'Klappt es fast fehlerfrei, wird das Tempo schneller.'], ['strumming', 'takt', 'griffbild', 'akkord', 'bpm']],
   licks: [['Stil und Lick wählen (oder 🎲 Zufall).', '„▶ Ruf“: die App spielt das Lick und zeigt jeden Ton: Saite, Bund, Finger.', 'Danach spielst du es nach. Die App wartet bei jedem Ton, bis er stimmt.', 'Zu schwer? Tempo-Regler nach links. Später „⚡ Im Takt“ für Tempo-Training.'], ['tab', 'tech', 'finger', 'lick', 'saiten']],
   ueben: [['Übung oben wählen. Für den Anfang: „Lernpfad (Level)“.', 'Greif den angezeigten Akkord wie im Griffbild und schlag alle Saiten an, die keinen x haben.', 'Lass ihn klingen, bis er grün wird. Dann kommt der nächste.', '„▶ So klingt es“ spielt dir den Akkord vor.'], ['griffbild', 'akkord', 'bund', 'mikro']],
-  lieder: [['Bei jedem Lied siehst du die Griffbilder der Akkorde. Übe sie zuerst einzeln.', '„▶ Anhören“: so klingt die Folge.', '„Mitspielen“: Die App zählt ein und zeigt im Takt, welcher Akkord dran ist und welcher als Nächstes kommt.'], ['akkord', 'griffbild', 'takt']],
+  lieder: [['Oben stehen 8 R&B- und Neo-Soul-Folgen (🎤), jeweils mit Erklärung, warum sie so klingen. Darunter einfachere Lieder für den Anfang.', 'Bei jedem Lied siehst du die Griffbilder der Akkorde. Tipp drauf, dann siehst du groß, welcher Finger wohin kommt.', '„▶ Anhören“: so klingt die Folge.', '„Mitspielen“: Die App zählt ein und zeigt im Takt, welcher Akkord dran ist und welcher als Nächstes kommt.'], ['akkord', 'griffbild', 'takt']],
   idee: [['Mikrofon starten, dann „● Idee aufnehmen“.', 'Summ, sing oder spiel deine Melodie, dann „■ Stopp“.', 'Du bekommst Noten, Tabs und passende Akkorde und kannst sie anhören, speichern und nachspielen.'], ['tab', 'akkord', 'mikro']],
   hoeren: [['Mikrofon starten.', 'Spiel einen Ton oder Akkord und lass ihn klingen.', 'Oben steht sein Name, unten auf dem Griffbrett, wo du ihn gespielt hast.'], ['saiten', 'bund', 'griffbild']],
   stimmen: [['Mikrofon starten.', 'Eine Saite einzeln anschlagen, zum Beispiel die dicke E.', 'Steht die Nadel links (zu tief), den Wirbel fester drehen. Rechts (zu hoch): lockerer. In der Mitte und grün = gestimmt.', 'Das für alle 6 Saiten. Vor jedem Üben kurz stimmen!'], ['saiten']],
