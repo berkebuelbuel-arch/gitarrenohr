@@ -89,6 +89,15 @@ dialog#gripDlg::backdrop{background:rgba(0,0,0,.45)}
 .gmtop{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
 .gmtop .dg svg{width:84px}
 section.panel > .gm,section.panel > #gmRes{grid-column:1/-1}
+/* fullscreen: the browser's own, or a fixed full-window layer where that is not allowed (iPhone) */
+.gm:fullscreen,.gm.gmfs{position:fixed;inset:0;z-index:40;border-radius:0;overflow:auto;background:var(--surface);padding:max(10px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) 10px max(12px,env(safe-area-inset-left));gap:8px}
+.gm:fullscreen,.gm.gmfs{display:flex;flex-direction:column;height:100vh;height:100dvh;box-sizing:border-box}
+.gm:fullscreen #gmCanvas,.gm.gmfs #gmCanvas{flex:1 1 0;height:auto;min-height:120px}
+.gm:fullscreen #gmTip,.gm.gmfs #gmTip,.gm:fullscreen #gmHint,.gm.gmfs #gmHint,.gm:fullscreen .gmtop .sub,.gm.gmfs .gmtop .sub{display:none}
+.gm:fullscreen .mid,.gm.gmfs .mid{font-size:1.3rem}
+.gm:fullscreen .gmtop .dg svg,.gm.gmfs .gmtop .dg svg{width:48px}
+.gm:fullscreen .row,.gm.gmfs .row{flex-wrap:nowrap;overflow-x:auto}
+.gm:fullscreen .btn,.gm.gmfs .btn{padding:6px 10px;font-size:.88rem;white-space:nowrap}
 #gmCanvas{width:100%;height:300px;display:block;border-radius:14px;background:#14100d;touch-action:manipulation}
 .gmbar{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
 #gmFb.perfect{color:var(--good)} #gmFb.good{color:var(--accent)} #gmFb.miss{color:var(--warn)}
@@ -154,6 +163,7 @@ header{display:flex;justify-content:space-between;align-items:center;gap:10px}
 .toast{position:fixed;left:50%;top:18px;transform:translateX(-50%);z-index:30;background:var(--surface);border:2px solid var(--good);border-radius:16px;padding:10px 18px;font-family:var(--f-display);font-weight:800;font-size:1.2rem;text-align:center;box-shadow:0 8px 28px rgba(0,0,0,.2);animation:pop .4s ease-out;pointer-events:none}
 .toast small{display:block;font-family:var(--f-body);font-size:.85rem;color:var(--good)}
 .toast.big{font-size:1.7rem;padding:16px 26px}
+html,body{overflow-x:clip}
 .cf{position:fixed;top:-30px;z-index:29;font-style:normal;font-size:1.4rem;pointer-events:none;animation:fall 1.6s ease-in forwards}
 @keyframes fall{to{transform:translateY(105vh) rotate(540deg);opacity:.6}}
 .dg.lg:empty{min-height:190px}
@@ -457,20 +467,24 @@ header{display:flex;justify-content:space-between;align-items:center;gap:10px}
   <!-- Play mode: notes and chords scroll towards you, the app listens and scores -->
   <section class="panel" id="p-play" hidden>
     <div class="row">
-      <label>Was? <select id="gmCat"><option value="song">Lieder & Akkordfolgen</option><option value="lick">Licks</option><option value="riff">Riffs & Übungen</option><option value="scale">Tonleitern & Arpeggios</option><option value="own">Meine Ideen & Lyrics</option></select></label>
+      <label>Was? <select id="gmCat"><option value="song">Lieder & Akkordfolgen</option><option value="lick">Licks</option><option value="riff">Riffs & Übungen</option><option value="scale">Tonleitern & Arpeggios</option><option value="strum">Strumming-Muster</option><option value="own">Meine Ideen & Lyrics</option></select></label>
       <label>Stück <select id="gmItem"></select></label>
       <label id="gmKeyL">Tonart <select id="gmKey"></select></label>
     </div>
     <div class="row">
       <label>Modus <select id="gmMode"><option value="wait">Warten, bis ich treffe (Anfänger)</option><option value="run">Im Takt durchspielen</option></select></label>
       <label>Tempo <input type="range" id="gmSpeed" min="50" max="130" step="10" value="80"> <span id="gmSpeedV">80 %</span></label>
-      <label><input type="checkbox" id="gmBack"> Begleitung (mit Kopfhörern)</label>
+      <label id="gmProgL" hidden>Akkorde <select id="gmProg"></select></label>
+      <label>Wie lange <select id="gmRep"><option value="1">1× durch</option><option value="2" selected>2×</option><option value="4">4×</option><option value="8">8× (lang)</option><option value="32">Marathon (32×)</option></select></label>
+      <label><input type="checkbox" id="gmGtr" checked> 🎸 Gitarre spielt mit</label>
+      <label><input type="checkbox" id="gmBack" checked> 🥁 Begleitung</label>
     </div>
     <div class="card gm">
       <div class="gmtop"><div><div class="sub">Als Nächstes</div><div class="mid" id="gmNext">–</div><div class="sub" id="gmHint"></div></div><div id="gmDg"></div></div>
       <canvas id="gmCanvas" aria-label="Notenspur: Töne und Akkorde laufen von rechts zur Linie"></canvas>
       <div class="gmbar"><span class="mid" id="gmFb">&nbsp;</span><span><span class="pill" id="gmScore">0 Punkte</span> <span class="pill" id="gmStreak">Serie 0</span></span></div>
-      <div class="row"><button class="btn" id="gmStart">▶ Start</button><button class="btn ghost" id="gmStop">■ Stopp</button><button class="btn ghost" id="gmSkip">⏭ Weiter</button><button class="btn ghost" id="gmDemo">▶ Vorspielen</button></div>
+      <div class="row"><button class="btn" id="gmStart">▶ Start</button><button class="btn ghost" id="gmStop">■ Stopp</button><button class="btn ghost" id="gmSkip">⏭ Weiter</button><button class="btn ghost" id="gmDemo">▶ Vorspielen</button><button class="btn ghost" id="gmFull">⛶ Vollbild</button></div>
+      <p class="note" id="gmTip">🎧 Mit Kopfhörern klappt es am besten: Dann hört das Mikrofon nur deine Gitarre und nicht die Playback-Gitarre.</p>
     </div>
     <div class="card center" id="gmRes" hidden>
       <div class="big" id="gmStars">–</div><div class="mid" id="gmResT">–</div><div class="sub" id="gmResS"></div>
@@ -1534,7 +1548,7 @@ function loop() {
   if (speed.on && (panel === 'ueben' || panel === 'licks')) speedTick(level);
   if (st.on && st.mode === 'test' && panel === 'strum') strumTick(hf);
   if (sw.rec) swCapture();
-  if (game.on && panel === 'play') gameHear(level);
+  if (game.on && panel === 'play') gameHear(level, hf);
   if (ly.rec) lyCapture();
   if (wx.on) wechselTick();
   if (jam.on && panel === 'jam') jamTick();
@@ -1778,7 +1792,7 @@ function win(pts, msg, big) {
 }
 function confetti() {
   if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-  for (let i = 0; i < 24; i++) { const c = document.createElement('i'); c.className = 'cf'; c.textContent = ['🎉', '⭐', '🎸', '✨'][i % 4]; c.style.left = Math.random() * 100 + 'vw'; c.style.animationDelay = Math.random() * 0.3 + 's'; document.body.append(c); setTimeout(() => c.remove(), 1800); }
+  for (let i = 0; i < 24; i++) { const c = document.createElement('i'); c.className = 'cf'; c.textContent = ['🎉', '⭐', '🎸', '✨'][i % 4]; c.style.left = Math.random() * 90 + 'vw'; c.style.animationDelay = Math.random() * 0.3 + 's'; document.body.append(c); setTimeout(() => c.remove(), 1800); }
 }
 $('xpPill').onclick = () => { const x = store.get('xp', 0), l = xpLevel(x); say(`Level ${l}: ${x} Punkte gesamt, heute ${store.get('xpDay', {})[new Date().toISOString().slice(0, 10)] || 0}, noch ${xpFor(l + 1) - x} bis Level ${l + 1}. Punkte gibt es für jeden Ton, Akkord und Durchgang, der klappt.`); };
 function markPracticed() {
@@ -1818,6 +1832,13 @@ function practiceTick() {
 }
 
 // ---------- songs (traditional songs and common progressions; chords only)
+// public-domain melodies as notes (MIDI, eighths) for the note highway
+const MELODIES = [
+  { t: 'Alle meine Entchen', bpm: 90, midis: [60,62,64,65,67,67, 69,69,69,69,67, 69,69,69,69,67, 65,65,65,65,64,64, 62,62,62,62,60], lens: [2,2,2,2,4,4, 2,2,2,2,8, 2,2,2,2,8, 2,2,2,2,4,4, 2,2,2,2,8] },
+  { t: 'Bruder Jakob', bpm: 90, midis: [60,62,64,60, 60,62,64,60, 64,65,67, 64,65,67, 67,69,67,65,64,60, 67,69,67,65,64,60, 60,55,60, 60,55,60], lens: [2,2,2,2, 2,2,2,2, 2,2,4, 2,2,4, 1,1,1,1,2,2, 1,1,1,1,2,2, 2,2,4, 2,2,4] },
+  { t: 'Morgen kommt der Weihnachtsmann', bpm: 90, midis: [60,60,67,67,69,69,67, 65,65,64,64,62,62,60, 67,67,65,65,64,64,62, 67,67,65,65,64,64,62, 60,60,67,67,69,69,67, 65,65,64,64,62,62,60], lens: [2,2,2,2,2,2,4, 2,2,2,2,2,2,4, 2,2,2,2,2,2,4, 2,2,2,2,2,2,4, 2,2,2,2,2,2,4, 2,2,2,2,2,2,4] },
+  { t: 'Ode an die Freude (Beethoven, komplett)', bpm: 100, midis: [64,64,65,67, 67,65,64,62, 60,60,62,64, 64,62,62, 64,64,65,67, 67,65,64,62, 60,60,62,64, 62,60,60, 62,62,64,60, 62,64,65,64,60, 62,64,65,64,62, 60,62,55, 64,64,65,67, 67,65,64,62, 60,60,62,64, 62,60,60], lens: [2,2,2,2, 2,2,2,2, 2,2,2,2, 3,1,4, 2,2,2,2, 2,2,2,2, 2,2,2,2, 3,1,4, 2,2,2,2, 2,1,1,2,2, 2,1,1,2,2, 2,2,4, 2,2,2,2, 2,2,2,2, 2,2,2,2, 3,1,4] },
+  { t: 'Jingle Bells (Refrain)', bpm: 110, midis: [64,64,64, 64,64,64, 64,67,60,62, 64, 65,65,65,65, 65,64,64,64,64, 64,62,62,64, 62,67, 64,64,64, 64,64,64, 64,67,60,62, 64, 65,65,65,65, 65,64,64,64,64, 67,67,65,62, 60], lens: [2,2,4, 2,2,4, 2,2,3,1, 8, 2,2,3,1, 2,2,2,1,1, 2,2,2,2, 4,4, 2,2,4, 2,2,4, 2,2,3,1, 8, 2,2,3,1, 2,2,2,1,1, 2,2,2,2, 8] }];
 const SONGS = [
   { t: 'Neo-Soul: ii – V – I', key: 'C-Dur', meter: 4, bpm: 76, rnb: true, prog: [['Dm9', 4], ['G9', 4], ['Cmaj7', 8]], why: 'Die wichtigste Folge in Soul und Jazz: Dm9 öffnet, G9 baut Spannung auf, Cmaj7 löst sie weich auf.' },
   { t: 'R&B-Klassiker mit Septimen', key: 'C-Dur', meter: 4, bpm: 80, rnb: true, prog: [['Cmaj7', 4], ['Am7', 4], ['Dm7', 4], ['G7', 4]], why: 'Die bekannte Pop-Folge C – Am – Dm – G, nur mit Septimen: Dadurch klingt sie weicher und „teurer“.' },
@@ -1838,6 +1859,12 @@ const SONGS = [
   { t: 'Kumbaya (traditionell)', key: 'C-Dur', meter: 4, bpm: 80, prog: [['C', 4], ['F', 4], ['C', 12], ['F', 4], ['G', 8], ['C', 4], ['F', 4], ['C', 4], ['F', 4], ['C', 4], ['G', 4], ['C', 8]] },
   { t: 'When the Saints (traditionell)', key: 'G-Dur', meter: 4, bpm: 110, prog: [['G', 24], ['D', 8], ['G', 8], ['C', 8], ['G', 4], ['D', 4], ['G', 8]] },
   { t: 'Amazing Grace (traditionell)', key: 'G-Dur', meter: 3, bpm: 80, prog: [['G', 6], ['C', 3], ['G', 9], ['D', 6], ['G', 6], ['C', 3], ['G', 6], ['D', 3], ['G', 6]] },
+  { t: 'Greensleeves (traditionell)', key: 'A-Moll', meter: 6, bpm: 150, prog: [['Am', 6], ['G', 6], ['F', 6], ['E', 6], ['Am', 6], ['G', 6], ['Am', 3], ['E', 3], ['Am', 6], ['C', 6], ['G', 6], ['Am', 6], ['E', 6], ['C', 6], ['G', 6], ['Am', 3], ['E', 3], ['Am', 6]] },
+  { t: 'Swing Low (traditionell)', key: 'G-Dur', meter: 4, bpm: 76, prog: [['G', 4], ['C', 2], ['G', 2], ['G', 4], ['D', 4], ['G', 4], ['C', 2], ['G', 2], ['G', 2], ['D', 2], ['G', 4], ['G', 4], ['C', 2], ['G', 2], ['G', 4], ['D', 4], ['G', 4], ['C', 2], ['G', 2], ['D', 4], ['G', 4]] },
+  { t: 'Oh Susanna (Foster, gemeinfrei)', key: 'G-Dur', meter: 4, bpm: 100, prog: [['G', 8], ['D', 4], ['G', 4], ['G', 8], ['D', 4], ['G', 4], ['C', 8], ['G', 4], ['D', 4], ['G', 8], ['D', 4], ['G', 4]] },
+  { t: 'Auld Lang Syne (traditionell)', key: 'G-Dur', meter: 4, bpm: 80, prog: [['G', 4], ['D', 4], ['G', 4], ['C', 4], ['G', 4], ['D', 4], ['Em', 2], ['C', 2], ['D', 2], ['G', 2], ['G', 4], ['D', 4], ['G', 4], ['C', 4], ['G', 4], ['D', 4], ['Em', 2], ['C', 2], ['D', 2], ['G', 2]] },
+  { t: 'Stille Nacht (Gruber, gemeinfrei)', key: 'C-Dur', meter: 3, bpm: 84, prog: [['C', 6], ['C', 6], ['G', 6], ['C', 6], ['F', 6], ['C', 6], ['F', 6], ['C', 6], ['G', 6], ['C', 6], ['G', 3], ['C', 3], ['C', 6]] },
+  { t: 'R&B-Endlos-Jam: Am9 – Dm9 – Fmaj7 – E7', key: 'A-Moll', meter: 4, bpm: 74, rnb: true, prog: [['Am9', 4], ['Dm9', 4], ['Fmaj7', 4], ['E7', 4], ['Am9', 4], ['Dm9', 4], ['Fmaj7', 4], ['E7', 4], ['Dm9', 4], ['E7', 4], ['Am9', 4], ['Am9', 4]], why: 'Lange Moll-Schleife zum Durchspielen und Drübersingen. Die Folge Dm9 – E7 – Am9 am Ende ist das Herzstück vieler R&B-Balladen.' },
   { t: 'House of the Rising Sun (traditionell)', key: 'A-Moll', meter: 6, bpm: 160, prog: [['Am', 6], ['C', 6], ['D', 6], ['F', 6], ['Am', 6], ['C', 6], ['E', 12], ['Am', 6], ['C', 6], ['D', 6], ['F', 6], ['Am', 6], ['E', 6], ['Am', 6], ['E', 6]] }];
 $('songSel').innerHTML = SONGS.map((s, i) => `<option value="${i}">${s.t}</option>`).join('');
 $('songGrid').innerHTML = SONGS.map((s, i) => `<div class="card song"><div class="t">${s.rnb ? '🎤 R&B · ' : ''}${s.t}</div>${s.why ? `<div class="note">${s.why}</div>` : ''}<div class="sub">${s.key} · ${s.meter === 6 ? '6/8' : s.meter + '/4'}</div><div class="sub">${s.prog.map(p => p[0]).join(' – ')}</div><div class="diagrams mini">${[...new Set(s.prog.map(p => p[0]))].map(c => diagram(c)).join('')}</div><div class="row"><button class="btn small" data-game="${i}">🎮 Spielen</button><button class="btn ghost small" data-play="${i}">Mitspielen</button><button class="btn ghost small" data-hear="${i}">▶ Anhören</button></div></div>`).join('');
@@ -2888,18 +2915,30 @@ $('gmKey').innerHTML = Core.NAMES.map((n, i) => `<option value="${i}" ${i === 9 
 $('gmSpeed').oninput = () => $('gmSpeedV').textContent = $('gmSpeed').value + ' %';
 function gmItems() {
   const c = $('gmCat').value; $('gmKeyL').hidden = !['lick', 'scale'].includes(c);
-  const opts = c === 'song' ? SONGS.map((x, i) => [i, (x.rnb ? '🎤 ' : '') + x.t])
+  $('gmProgL').hidden = c !== 'strum'; if (!$('gmProg').options.length) $('gmProg').innerHTML = STRUM_PROGS.map(p => `<option>${p}</option>`).join('');
+  const opts = c === 'song' ? [...MELODIES.map((m, i) => ['m' + i, '🎵 Melodie: ' + m.t]), ...SONGS.map((x, i) => [i, (x.rnb ? '🎤 ' : '') + x.t])]
+    : c === 'strum' ? G.STRUMS.map((x, i) => [i, x.sig + ' · ' + x.t])
     : c === 'lick' ? G.LICKS.map((l, i) => [i, l.style + ': ' + l.t])
     : c === 'riff' ? RIFFS.map((r, i) => [i, r.t])
     : c === 'scale' ? [...G.SCALES.map(([n], i) => ['s' + i, n]), ...G.ARPS.map(([n], i) => ['a' + i, 'Arpeggio ' + n])]
     : [...(idea ? [['idea', 'Meine Idee: ' + (idea.name || 'aktuelle Aufnahme')]] : []), ...(ly.res ? [['lyr', 'Meine Lyrics-Akkorde']] : []), ...store.get('ideas', []).map((it, i) => ['saved' + i, 'Gespeichert: ' + (it.name || new Date(it.date).toLocaleDateString('de-DE'))])];
   $('gmItem').innerHTML = opts.length ? opts.map(([v, t]) => `<option value="${v}">${t}</option>`).join('') : '<option value="">(noch nichts – nimm erst eine Idee auf)</option>';
 }
-$('gmCat').onchange = () => { gmItems(); gameReset(); }; ['gmItem', 'gmKey'].forEach(id => $(id).onchange = gameReset);
+$('gmCat').onchange = () => { gmItems(); gameReset(); }; ['gmItem', 'gmKey', 'gmRep', 'gmProg'].forEach(id => $(id).onchange = gameReset);
 // any source in the app -> { bpm, meter, events: [{ kind: 'note'|'chord', t, dur (beats), s, f, midi, tech, chord }] }
-function gameBuild() {
+function gameBuild() { // the piece, repeated as often as chosen
+  const s0 = gameBuild1(), rep = +$('gmRep').value || 1; if (!s0 || !s0.events.length) return s0;
+  const last = s0.events.at(-1), len = Math.ceil((last.t + last.dur) / s0.meter) * s0.meter, events = [];
+  for (let r = 0; r < rep; r++) s0.events.forEach(e => events.push({ ...e, t: e.t + r * len }));
+  return { ...s0, events, title: s0.title + (rep > 1 ? ` (${rep}×)` : '') };
+}
+function gameBuild1() {
   const c = $('gmCat').value, v = $('gmItem').value, key = +$('gmKey').value;
   const fromTab = (tab, lens, tech, bpm) => { let p = 0; return { bpm, meter: 4, events: tab.map((n, i) => { const e = { kind: 'note', t: p / 2, dur: lens[i] / 2, s: n.s, f: n.f, midi: n.midi, tech: tech && tech[i] && tech[i].t }; p += lens[i]; return e; }) }; };
+  if (c === 'song' && String(v)[0] === 'm') { const m = MELODIES[+v.slice(1)], tab = G.tabify(m.midis.map((x, i) => ({ midi: x, start: i, dur: 1 })), true); return { ...fromTab(tab, m.lens, [], m.bpm), title: m.t }; }
+  if (c === 'strum') { const sp = G.STRUMS[v], prog = $('gmProg').value.split(' '), per = sp.beats / sp.g, events = [];
+    prog.forEach((ch, b) => [...sp.p].forEach((sym, i) => { if (sym !== '-') events.push({ kind: 'strum', sym, chord: ch, first: !i, t: b * sp.beats + i * per, dur: per }); }));
+    return { bpm: 72, meter: sp.beats, title: sp.t, events }; }
   if (c === 'song') { const sg = SONGS[v]; let t = 0; return { bpm: sg.bpm, meter: sg.meter === 6 ? 6 : sg.meter, title: sg.t, events: sg.prog.map(([ch, n]) => { const e = { kind: 'chord', chord: ch, t, dur: n }; t += n; return e; }) }; }
   if (c === 'lick') { const l = G.LICKS[v], n = G.lickIn(l, key); return { ...fromTab(n.map(([s2, f]) => ({ s: s2, f, midi: G.OPEN[s2] + f })), n.map(x => x[2]), n.map(x => ({ t: x[3] || '' })), 76), title: l.t + ' in ' + Core.name(key) }; }
   if (c === 'riff') { const d = riffData(RIFFS[v]); return { ...fromTab(d.tab, d.lens, d.tech, 76), title: RIFFS[v].t }; }
@@ -2913,6 +2952,7 @@ function gameBuild() {
 function gameReset() { if (game.on) gameStop(); const s = gameBuild(); Object.assign(game, { song: s, ev: s ? s.events.map(e => ({ ...e, res: null })) : [], i: 0, beat: -4 }); $('gmRes').hidden = true; gameNext(); gameDraw(); }
 function gameNext() {
   const e = game.ev[game.i]; if (!e) { $('gmNext').textContent = game.ev.length ? '🎉 Geschafft' : '–'; $('gmHint').textContent = ''; $('gmDg').innerHTML = ''; return; }
+  if (e.kind === 'strum') { $('gmNext').textContent = `${e.chord} · ${{ D: '↓ runter', U: '↑ hoch', x: '✕ gedämpft', B: 'Basssaite' }[e.sym]}`; $('gmHint').textContent = 'Schlag, wenn der Pfeil die Linie erreicht'; if ($('gmDg').dataset.c !== e.chord) { $('gmDg').innerHTML = diagram(e.chord); $('gmDg').dataset.c = e.chord; } return; }
   if (e.kind === 'chord') { $('gmNext').textContent = 'Akkord ' + e.chord; $('gmHint').textContent = `${e.dur} Schläge lang · Griffbild antippen für die Finger`; if ($('gmDg').dataset.c !== e.chord) { $('gmDg').innerHTML = diagram(e.chord); $('gmDg').dataset.c = e.chord; } }
   else { const fg = e.f === 0 ? 'leer' : 'Bund ' + e.f; $('gmNext').textContent = `${STR_NAMES[e.s]}-Saite · ${fg}`; $('gmHint').textContent = noteLabel(e.midi) + (e.tech ? ' · ' + G.TECH_NAMES[e.tech] : ''); $('gmDg').innerHTML = ''; $('gmDg').dataset.c = ''; }
 }
@@ -2923,19 +2963,28 @@ function gameStart(mode) {
   Object.assign(game, { on: true, mode: m, rate, spb, ev: game.song.events.map(e => ({ ...e, res: null })), i: 0, beat: -4, score: 0, streak: 0, best: 0, perfect: 0, good: 0, miss: 0, match: 0, armed: true, minRms: 1, lastClick: -5, t0: audio().currentTime + 0.15, last: performance.now(), heard: 0 });
   game.sched = game.t0; game.schedBeat = -4;
   if (m !== 'wait') game.timer = setInterval(gameSchedule, 25);
+  if (m === 'run' && ($('gmGtr').checked || $('gmBack').checked)) micAec(true); // the playback must not count as your playing
   if (!running && m !== 'demo') say('Tipp oben auf „🎤 Mikrofon starten“, dann hört die App, was du spielst.', true);
   $('gmStart').textContent = '■ Neu starten'; $('gmFb').textContent = m === 'demo' ? '👂 Hör zu und schau mit …' : 'Los geht’s …'; $('gmFb').className = 'mid'; gameNext(); gameStats();
   game.raf = requestAnimationFrame(gameFrame);
 }
-function gameStop() { game.on = false; clearInterval(game.timer); cancelAnimationFrame(game.raf); $('gmStart').textContent = '▶ Start'; }
+function gameStop() { game.on = false; clearInterval(game.timer); cancelAnimationFrame(game.raf); $('gmStart').textContent = '▶ Start'; micAec(false); }
 function gameSchedule() { // run/demo: clicks, optional backing, and in demo the notes themselves
   const a = ctx, horizon = a.currentTime + 0.2, g = game, last = g.ev.at(-1);
   while (g.on && g.t0 + (g.schedBeat + 4) * g.spb < horizon && g.schedBeat < last.t + last.dur + 1) {
     const b = g.schedBeat, t = g.t0 + (b + 4) * g.spb;
     click(t, ((b % g.song.meter) + g.song.meter) % g.song.meter === 0);
-    g.ev.forEach(e => { if (e.t !== b && !(e.t > b && e.t < b + 1)) return; const te = g.t0 + (e.t + 4) * g.spb;
-      if (g.mode === 'demo') e.kind === 'chord' ? strum(e.chord, te, 0.45) : pluck(e.midi, te, 0.9);
-      if ($('gmBack').checked && e.kind === 'chord') { keys(e.chord, te, e.dur * g.spb - 0.05); const c = G.parseChord(e.chord); if (c) bass(28 + ((c.pc - 4 + 12) % 12), te, e.dur * g.spb * 0.9); } });
+    const gtr = g.mode === 'demo' || $('gmGtr').checked, back = $('gmBack').checked && b >= 0, m = g.song.meter;
+    if (back) { const pos = ((b % m) + m) % m, sp = g.spb; drum('h', t, 0.6); drum('h', t + sp / 2, 0.35); // soft groove under everything
+      if (pos === 0 || (m === 4 && pos === 2)) drum('k', t, 0.8); if ((m === 4 && (pos === 1 || pos === 3)) || (m !== 4 && pos === Math.floor(m / 2))) drum('s', t, 0.6); }
+    g.ev.forEach(e => { if (e.t + e.dur <= b || e.t >= b + 1) return; const te = g.t0 + (e.t + 4) * g.spb;
+      if (e.kind === 'chord') { // the playback guitar strums every beat of the chord block
+        if (gtr) strum(e.chord, t, e.t >= b ? 0.42 : 0.28);
+        if (back && e.t >= b) { keys(e.chord, te, e.dur * g.spb - 0.05); const c = G.parseChord(e.chord); if (c) bass(28 + ((c.pc - 4 + 12) % 12), te, e.dur * g.spb * 0.9); }
+        return; }
+      if (e.t < b) return;
+      if (e.kind === 'strum') { if (gtr) strumSlot(e.sym, e.chord, te, 0.4); if (back && e.first) { keys(e.chord, te, g.spb * m - 0.05); const c = G.parseChord(e.chord); if (c) bass(28 + ((c.pc - 4 + 12) % 12), te, g.spb * 2); } }
+      else if (gtr) pluck(e.midi, te, g.mode === 'demo' ? 0.9 : 0.65); });
     g.schedBeat++;
   }
 }
@@ -2944,18 +2993,24 @@ function gameFrame() {
   const now = performance.now(), dt = (now - g.last) / 1000; g.last = now;
   if (g.mode === 'wait') { // own clock that stops at the next note until you hit it
     const e = g.ev[g.i], prev = g.beat; let nb = g.beat + dt / g.spb; if (e && nb >= e.t) nb = e.t;
+    if (e && nb >= e.t && prev < e.t && $('gmGtr').checked) { const t = ctx.currentTime + 0.01; e.kind === 'chord' ? strum(e.chord, t, 0.4) : e.kind === 'strum' ? strumSlot(e.sym, e.chord, t, 0.4) : pluck(e.midi, t, 0.7); g.muteUntil = performance.now() + (e.kind === 'strum' ? 350 : 700); } // hear it first, then play
     if (Math.floor(nb) > Math.floor(prev) && nb < 0) click(ctx.currentTime + 0.01, false); // count-in clicks
     g.beat = nb;
   } else g.beat = (ctx.currentTime - g.t0) / g.spb - 4;
   if (g.mode !== 'wait') { // a note whose window closed without a hit is missed
-    const late = e => e.t + (e.kind === 'chord' ? Math.max(0.6 / g.spb, Math.min(e.dur * 0.6, 1.5)) : 0.3 / g.spb);
+    const late = e => e.t + (e.kind === 'chord' ? Math.max(0.6 / g.spb, Math.min(e.dur * 0.6, 1.5)) : e.kind === 'strum' ? 0.22 / g.spb : 0.3 / g.spb);
     while (g.ev[g.i] && g.beat > late(g.ev[g.i])) { if (g.mode === 'demo') { g.ev[g.i].res = 'demo'; g.i++; gameNext(); } else gameJudge('miss'); }
   }
   const last = g.ev.at(-1); if (g.i >= g.ev.length && g.beat > last.t + last.dur + 0.5) { gameDraw(); return gameEnd(); }
   gameDraw(); g.raf = requestAnimationFrame(gameFrame);
 }
-function gameHear(level) { // from the mic loop: does what you play match the next note or chord?
+function gameHear(level, hf = level) { // from the mic loop: does what you play match the next note or chord?
   const g = game, e = g.ev[g.i]; if (!e || g.mode === 'demo') return;
+  const onset = hf > (g.env || 0) * 1.5 + 0.002 && performance.now() - (g.lastOn || 0) > 90; g.env = Math.max(hf, (g.env || 0) * 0.9); if (onset) g.lastOn = performance.now();
+  if (performance.now() < (g.muteUntil || 0)) { g.match = 0; return; } // the hint the app just played
+  if (e.kind === 'strum') { if (!onset) return; // strums: only the timing of the attack counts
+    if (g.mode === 'wait') { if (g.beat >= e.t - 0.3) gameJudge('perfect'); return; }
+    const off = (g.beat - e.t) * g.spb - LAT; if (Math.abs(off) <= 0.22) gameJudge(Math.abs(off) <= 0.09 ? 'perfect' : 'good', off); return; }
   const ok = e.kind === 'chord' ? chordOk(lastChord, e.chord) : lastMidiF != null && [0, 12, -12].some(o => Math.abs(lastMidiF + o - e.midi) < 0.6);
   if (!ok) { g.armed = true; g.match = 0; g.minRms = Math.min(g.minRms, level); return; }
   if (level > g.minRms * 1.8 + 0.002) g.armed = true; // a fresh attack counts even on the same note
@@ -3000,6 +3055,13 @@ function gameDraw() {
   g.ev.forEach((e, k) => {
     const x0 = bx(e.t), x1 = bx(e.t + e.dur); if (x1 < 26 || x0 > W + 40) return; // gone past the line: out of the way of the string names
     const col = e.res === 'perfect' || e.res === 'good' ? gmCss.good : e.res === 'miss' ? 'rgba(160,160,160,.45)' : null, cur = k === g.i;
+    if (e.kind === 'strum') {
+      const w = Math.max(18, x1 - x0 - 4); x.fillStyle = col || (cur ? gmCss.acc : e.sym === 'U' ? 'rgba(120,170,255,.7)' : 'rgba(217,164,65,.75)');
+      x.beginPath(); (x.roundRect ? x.roundRect.bind(x) : x.rect.bind(x))(x0 - w / 2, top - 6, w, bot - top + 12, 8); x.fill();
+      x.fillStyle = '#1b1512'; x.font = `800 ${cur ? 24 : 20}px sans-serif`; x.textAlign = 'center'; x.fillText({ D: '↓', U: '↑', x: '✕', B: 'B' }[e.sym], x0, (top + bot) / 2 + 8);
+      if (e.first) { x.fillStyle = '#fff'; x.font = '800 15px sans-serif'; x.fillText(e.chord, x0, top - 9); }
+      return;
+    }
     if (e.kind === 'chord') {
       x.fillStyle = col || (cur ? gmCss.acc : 'rgba(217,164,65,.55)'); x.globalAlpha = e.res ? 0.6 : 0.9;
       x.beginPath(); (x.roundRect ? x.roundRect.bind(x) : x.rect.bind(x))(x0 + 2, top - 14, Math.max(30, x1 - x0 - 6), bot - top + 28, 12); x.fill(); x.globalAlpha = 1;
@@ -3019,6 +3081,21 @@ function gameDraw() {
   const e = g.ev[g.i];
   if (g.on && g.mode === 'wait' && e && g.beat >= e.t - 0.001) { x.fillStyle = 'rgba(255,255,255,.85)'; x.font = '700 14px sans-serif'; x.fillText(running ? 'Ich warte, bis du triffst …' : 'Mikrofon starten, dann hör ich zu', W / 2, 16); }
   if (!g.ev.length) { x.fillStyle = '#ccc'; x.font = '15px sans-serif'; x.fillText('Wähl oben ein Stück aus.', W / 2, H / 2); }
+}
+// fullscreen: real fullscreen where the browser allows it (Android, computer), else a full-window layer (iPhone)
+$('gmFull').onclick = async () => {
+  const el = document.querySelector('.gm'), on = document.fullscreenElement || el.classList.contains('gmfs');
+  if (on) { if (document.fullscreenElement) await document.exitFullscreen().catch(() => {}); el.classList.remove('gmfs'); $('gmFull').textContent = '⛶ Vollbild'; setTimeout(gameDraw, 100); return; }
+  try { await el.requestFullscreen(); try { await screen.orientation.lock('landscape'); } catch (e) {} } catch (e) { el.classList.add('gmfs'); }
+  $('gmFull').textContent = '✕ Vollbild aus'; setTimeout(gameDraw, 150);
+};
+document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement) $('gmFull').textContent = '⛶ Vollbild'; setTimeout(gameDraw, 100); });
+// echo cancellation on while the app plays along, so its own guitar is not heard as yours; off again for the best guitar detection
+let aecOn = false;
+async function micAec(on) {
+  if (!running || !inStream || inStream.getVideoTracks().length || aecOn === on) return; aecOn = on;
+  try { const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: on, noiseSuppression: false, autoGainControl: false } });
+    await listen(stream, '■ Mikrofon stoppen', on ? 'Playback läuft, ich höre nur dich.' : 'Ich höre zu …'); } catch (e) { aecOn = !on; }
 }
 $('gmStart').onclick = () => gameStart();
 $('gmStop').onclick = () => { gameStop(); stopAll(); $('gmFb').textContent = 'Gestoppt.'; $('gmFb').className = 'mid'; };
@@ -3057,7 +3134,7 @@ const TERMS = {
 };
 const HELP = {
   sw: [['Oben „🎤 Mikrofon starten“ tippen.', '„● Lied aufnehmen“ tippen, 20 bis 60 Sekunden singen oder spielen, dann „■ Fertig“.', 'Die App zeigt Tonart, Tempo, passende Strumming-Muster und Akkorde mit Griffbildern.', '„▶ Mit Band anhören“: dein Lied mit Schlagzeug, Bass und Gitarre. „💾 Speichern“ lädt es herunter.', 'Unten bei „Riffs, Licks & Tonleitern“ hörst du mit „▶ Im Song“, was du zusätzlich spielen kannst.'], ['mikro', 'tonart', 'bpm', 'akkord', 'strumming']],
-  play: [['Oben auswählen, was du spielen willst: Lied, Lick, Riff, Tonleiter oder deine eigene Idee.', 'Erst „▶ Vorspielen“: So klingt es, die Töne laufen dabei schon über die Spur.', 'Jede farbige Linie ist eine Saite, oben die dünne e, unten die dicke E (wie im Tab). Die Zahl im Kreis ist der Bund, 0 = leere Saite. Gelbe Blöcke sind Akkorde.', 'Mikrofon starten, dann „▶ Start“. Spiel jeden Ton, wenn er die gelbe Linie erreicht.', 'Modus „Warten“: Die Spur hält an, bis du triffst (für Anfänger). „Im Takt“: Sie läuft durch, du bekommst Punkte für Timing. 3 Sterne? Dann Tempo hoch!'], ['tab', 'saiten', 'bund', 'akkord', 'griffbild']],
+  play: [['Oben auswählen, was du spielen willst: Lied, Lick, Riff, Tonleiter oder deine eigene Idee.', 'Erst „▶ Vorspielen“: So klingt es, die Töne laufen dabei schon über die Spur.', 'Jede farbige Linie ist eine Saite, oben die dünne e, unten die dicke E (wie im Tab). Die Zahl im Kreis ist der Bund, 0 = leere Saite. Gelbe Blöcke sind Akkorde.', 'Mikrofon starten, dann „▶ Start“. Spiel jeden Ton, wenn er die gelbe Linie erreicht.', 'Modus „Warten“: Die Spur hält an, bis du triffst, und die Gitarre spielt dir jeden Ton einmal vor. „Im Takt“: Alles läuft mit Playback-Gitarre und Begleitung durch, du bekommst Punkte fürs Timing. 3 Sterne? Dann Tempo hoch!', '„⛶ Vollbild“ für die große Ansicht, „Wie lange“ für lange Übungen bis zum Marathon.'], ['tab', 'saiten', 'bund', 'akkord', 'griffbild']],
   lyr: [['Tipp oben auf „🎤 Mikrofon starten“.', 'Tipp deinen Text ein (eine Zeile pro Satz), lass ihn beim Singen mitschreiben, oder sprich ihn danach mit „🗣 Text einsprechen“ ein (am zuverlässigsten).', '„● Singen und aufnehmen“, sing dein Lied mit kleinen Pausen zwischen den Sätzen, dann „■ Fertig“.', 'Die Tabelle zeigt jeden Satz mit den Akkorden über den Wörtern. Rechts steht genau: welcher Akkord von wann bis wann und ab welchem Wort.', '„▶ Mit Band anhören“: Die aktuelle Zeile und der Akkord leuchten mit. Akkord-Stil oben umschalten, z. B. R&B.'], ['akkord', 'griffbild', 'tonart', 'tonleiter', 'bpm']],
   jam: [['Tonart und Stil wählen, „▶ Band starten“.', 'Oben siehst du, welcher Akkord gerade läuft, darunter die Griffbilder.', 'Spiel Töne der Tonleiter vom Griffbrett. Grüne Punkte klingen zum aktuellen Akkord am besten.', 'Mit Mikrofon sagt dir die App bei jedem Ton, ob er passt.'], ['tonleiter', 'bund', 'saiten', 'mikro']],
   strum: [['Muster wählen. Neu? Nimm „Anfänger: ein Schlag pro Takt“.', 'Akkorde wählen. Die Griffbilder zeigen, wie die linke Hand greift. Übe zuerst nur das Greifen.', '„▶ Vorspielen“: zuhören und die Hand ansehen. Oben steht, welchen Akkord du jetzt greifst und welcher danach kommt.', '„🎸 Nachspielen“: Mikrofon an, die App zählt einen Takt ein, dann spielst du 4 Takte mit.', 'Klappt es fast fehlerfrei, wird das Tempo schneller.'], ['strumming', 'takt', 'griffbild', 'akkord', 'bpm']],
